@@ -7,7 +7,7 @@ from aiocoap.numbers.codes import Code
 from aiocoap.protocol import Context
 from aiocoap.resource import ObservableResource
 
-from encdec import PayloadEncoder
+from encdec import PayloadEncoder, PayloadDecoder
 from handlers import *
 from model import ClientModel
 
@@ -16,10 +16,11 @@ log = logging.getLogger("client")
 
 
 class RequestHandler(ObservableResource):
-    def __init__(self, model, encoder):
+    def __init__(self, model, encoder, decoder):
         super(RequestHandler, self).__init__()
         self.model = model
         self.encoder = encoder
+        self.decoder = decoder
 
     def handle_read(self, path):
         return self.encoder.encode(path)
@@ -79,7 +80,7 @@ class RequestHandler(ObservableResource):
     @asyncio.coroutine
     def render_put(self, request):
         log.debug("write on %s" % "/".join(request.opt.uri_path))
-        # TODO: implement write here
+        self.model.apply(self.decoder.decode(request.payload, request.opt.content_format))
         return Message(code=Code.CHANGED)
 
     @asyncio.coroutine
@@ -101,7 +102,8 @@ class Client(resource.Site):
         self.server_port = server_port
         self.model = model
         self.encoder = PayloadEncoder(model)
-        self.request_handler = RequestHandler(self.model, self.encoder)
+        self.decoder = PayloadDecoder(model)
+        self.request_handler = RequestHandler(self.model, self.encoder, self.decoder)
         for path in model.instance_iter():
             self.add_resource(path, self.request_handler)
         for path in model.resource_iter():
