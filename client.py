@@ -80,7 +80,7 @@ class RequestHandler(ObservableResource):
     @asyncio.coroutine
     def render_put(self, request):
         log.debug("write on %s" % "/".join(request.opt.uri_path))
-        self.model.apply(self.decoder.decode(request.payload, request.opt.content_format))
+        self.model.apply(self.decoder.decode(request.opt.uri_path, request.payload, request.opt.content_format))
         return Message(code=Code.CHANGED)
 
     @asyncio.coroutine

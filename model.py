@@ -83,6 +83,13 @@ class ClientModel(object):
     def set_resource(self, obj, inst, res, content):
         self.data[str(obj)][str(inst)][str(res)] = content
 
+    def apply(self, data):
+        for obj in data.keys():
+            for inst in data[obj].keys():
+                for res in data[obj][inst].keys():
+                    log.debug("applying %s/%s/%s = %s" % (obj, inst, res, data[obj][inst][res]))
+                    self.set_resource(obj, inst, res, data[obj][inst][res])
+
 
 if __name__ == '__main__':
     model = ClientModel()

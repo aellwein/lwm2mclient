@@ -178,13 +178,47 @@ class TlvEncoder(object):
         return _payload
 
 
+class TextDecoder(object):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def decode(_model, path, payload):
+        if len(path) != 3 or _model.is_resource_multi_instance(path[0], path[1], path[2]):
+            raise Exception("TEXT format should only be used for single non-multiple resource")
+        _obj = path[0]
+        _inst = path[1]
+        _res = path[2]
+        result = dict()
+        result[_obj] = dict()
+        result[_obj][_inst] = dict()
+        _payload = payload.decode()
+        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
+        if _type == "integer":
+            result[_obj][_inst][_res] = int(_payload)
+        elif _type == "string":
+            result[_obj][_inst][_res] = _payload
+        elif _type == "float":
+            result[_obj][_inst][_res] = float(_payload)
+        elif _type == "boolean":
+            result[_obj][_inst][_res] = True if _payload == "1" else False
+        elif _type == "time":
+            result[_obj][_inst][_res] = int(_payload)
+        elif _type == "opaque":
+            result[_obj][_inst][_res] = payload.hex()
+        else:
+            raise TypeError("unknown type: %s" % _type)
+        logging.debug("result of TEXT decoding: {}".format(result))
+        return result
+
+
 class TlvDecoder(object):
     def __init__(self):
         pass
 
     @staticmethod
-    def decode(payload):
-        pass
+    def decode(_model, path, payload):
+        logger.debug("decode(path=%s, payload=%s)" % (path, payload))
 
 
 class PayloadEncoder(object):
@@ -211,11 +245,13 @@ class PayloadDecoder(object):
     def __init__(self, _model):
         self.model = _model
 
-    def decode(self, payload, content_format):
-        logger.debug("decode(payload=%s, content_format=%s)" % (payload, content_format))
+    def decode(self, path, payload, content_format):
         if content_format == MediaType.TLV.value:
-            return TlvDecoder.decode(payload)
-        return {}
+            return TlvDecoder.decode(self.model, path, payload)
+        elif content_format == MediaType.TEXT.value:
+            return TextDecoder.decode(self.model, path, payload)
+        else:
+            raise Exception("unsupported content format: %s" % content_format)
 
 
 if __name__ == '__main__':
