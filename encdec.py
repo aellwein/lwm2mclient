@@ -146,8 +146,7 @@ class TlvEncoder(object):
             logger.debug("_resource_to_tlv(): %s/%s/%s, type=%s, content=\"%s\"" % (obj, inst, res, _type, _content))
         if _type == "integer":
             i = int(_content)
-            l = needs_bytes(i)
-            _payload = i.to_bytes(l, byteorder="big", signed=(i < 0))
+            _payload = i.to_bytes(int(i.bit_length() / 8) + 1, byteorder="big", signed=True)
         elif _type == "string":
             _payload = _content.encode()
         elif _type == "float":
