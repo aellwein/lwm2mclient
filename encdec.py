@@ -178,6 +178,15 @@ class TlvEncoder(object):
         return _payload
 
 
+class DecoderException(BaseException):
+    def __init__(self, message):
+        super(DecoderException, self).__init__(message)
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 class TextDecoder(object):
     def __init__(self):
         pass
@@ -218,8 +227,77 @@ class TlvDecoder(object):
 
     @staticmethod
     def decode(_model, path, payload):
-        logger.debug("decode(path=%s, payload=%s)" % (path, payload))
+        logger.debug("decode(path=%s, payload=%s)" % (path, hexdump(payload, result="return")))
+        _payload = payload
+        while len(_payload) != 0:
+            _id, _value, _type, _payload = TlvDecoder._decode(path, _payload)
+        return {}
 
+    @staticmethod
+    def _decode(path, payload):
+        try:
+            _type = payload[0]
+        except IndexError:
+            raise DecoderException("invalid TLV length")
+        _len_type = _type >> 3 & 0b11
+        _len = None
+        if _len_type == 0:
+            _len = _type & 0b111
+            logger.debug("Value length: %d bytes" % _len)
+        elif _len_type == 1:
+            logger.debug("length's length: 8 bits")
+        elif _len_type == 2:
+            logger.debug("length's length: 16 bits")
+        elif _len_type == 3:
+            logger.debug("length's length: 24 bits")
+        id_len = _type >> 5 & 1
+        try:
+            _payload = payload[1:]
+        except IndexError:
+            raise DecoderException("unable to determine ID from invalid payload")
+
+        if id_len == 1:
+            logger.debug("ID: 16 bits")
+            try:
+                _id = int.from_bytes(_payload[0:2], byteorder="big")
+                logger.debug("ID: %d" % _id)
+                _payload = _payload[2:]
+            except IndexError:
+                raise DecoderException("missing ID bytes in TLV")
+        elif id_len == 0:
+            logger.debug("ID length: 8 bits")
+            try:
+                _id = int.from_bytes(_payload[0:1], byteorder="big")
+                logger.debug("ID: %d" % _id)
+                _payload = _payload[1:]
+            except IndexError:
+                raise DecoderException("missing ID bytes in TLV")
+        try:
+            _len = _len if _len is not None else _len_type
+            _value = _payload[0:_len]
+            logger.debug("value: %s" % hexdump(_value, result="return"))
+        except IndexError:
+            raise DecoderException("not enough bytes for TLV value in payload")
+
+        if _type >> 6 == 0b00:
+            # OBJECT_INSTANCE
+            logger.debug("type = OBJECT_INSTANCE")
+            pass
+        elif _type >> 6 == 0b01:
+            # RESOURCE_INSTANCE
+            logger.debug("type = RESOURCE_INSTANCE")
+            pass
+        elif _type >> 6 == 0b10:
+            # MULTIPLE_RESOURCE
+            logger.debug("type = MULTIPLE_RESOURCE")
+            pass
+        elif _type >> 6 == 0b11:
+            # RESOURCE_VALUE
+            logger.debug("type = RESOURCE_VALUE")
+            pass
+        else:
+            raise DecoderException("invalid TLV type: {}".format(_type >> 6))
+        return _id, _value, _type, _payload[_len:]
 
 class PayloadEncoder(object):
     def __init__(self, _model):
@@ -246,15 +324,20 @@ class PayloadDecoder(object):
         self.model = _model
 
     def decode(self, path, payload, content_format):
-        if content_format == MediaType.TLV.value:
-            return TlvDecoder.decode(self.model, path, payload)
-        elif content_format == MediaType.TEXT.value:
-            return TextDecoder.decode(self.model, path, payload)
-        else:
-            raise Exception("unsupported content format: %s" % content_format)
+        if not self.model.is_path_valid(path):
+            return Message(code=Code.NOT_FOUND), None
+        try:
+            if content_format == MediaType.TLV.value:
+                return Message(code=Code.CHANGED), TlvDecoder.decode(self.model, path, payload)
+            elif content_format == MediaType.TEXT.value:
+                return Message(code=Code.CHANGED), TextDecoder.decode(self.model, path, payload)
+            else:
+                raise Exception("unsupported content format: %s" % content_format)
+        except DecoderException as e:
+            return Message(code=Code.BAD_REQUEST, payload=e.message.encode()), None
 
 
 if __name__ == '__main__':
     model = ClientModel()
-    pe = PayloadEncoder(model)
-    logger.debug("encode: {}".format(pe.encode(("3",))))
+    encoder = PayloadEncoder(model)
+    logger.debug("encode: {}".format(encoder.encode(("3",))))
