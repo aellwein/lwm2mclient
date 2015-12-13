@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 from math import log
-from struct import pack
+from struct import pack, unpack
 from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
 from hexdump import hexdump
@@ -166,14 +166,14 @@ class TlvEncoder(object):
                 # use double
                 _payload = pack(">d", f)
         elif _type == "boolean":
-            _payload = b'\x01' if _content.upper() == "TRUE" else b'\x00'
+            _payload = b'\x01' if _content else b'\x00'
         elif _type == "time":
             _payload = pack(">q", int(_content))
         elif _type == "opaque":
             _payload = bytearray.fromhex(_content)
         else:
             raise TypeError(
-                "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
+                    "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
         logger.debug("payload: %s" % hexdump(_payload, result="return"))
         return _payload
 
@@ -193,8 +193,6 @@ class TextDecoder(object):
 
     @staticmethod
     def decode(_model, path, payload):
-        if len(path) != 3 or _model.is_resource_multi_instance(path[0], path[1], path[2]):
-            raise Exception("TEXT format should only be used for single non-multiple resource")
         _obj = path[0]
         _inst = path[1]
         _res = path[2]
@@ -229,9 +227,52 @@ class TlvDecoder(object):
     def decode(_model, path, payload):
         logger.debug("decode(path=%s, payload=%s)" % (path, hexdump(payload, result="return")))
         _payload = payload
+        result = dict()
         while len(_payload) != 0:
             _id, _value, _type, _payload = TlvDecoder._decode(path, _payload)
-        return {}
+            _value = TlvDecoder.value_from_bytes(_model, (path[0], path[1], str(_id),), _value)
+            result = dict(TlvDecoder.mergedicts(result, _value))
+        logger.info("decode result: %s" % result)
+        return result
+
+    @staticmethod
+    def value_from_bytes(_model, path, payload):
+        _obj = path[0]
+        _inst = path[1]
+        _res = path[2]
+        result = dict()
+        result[_obj] = dict()
+        result[_obj][_inst] = dict()
+        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
+        if _type == "integer":
+            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
+        elif _type == "string":
+            result[_obj][_inst][_res] = payload.decode()
+        elif _type == "float":
+            result[_obj][_inst][_res] = unpack("f", payload)
+        elif _type == "boolean":
+            result[_obj][_inst][_res] = True if payload[0] == 1 else False
+        elif _type == "time":
+            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
+        elif _type == "opaque":
+            result[_obj][_inst][_res] = payload.hex()
+        else:
+            raise TypeError("unknown type: %s" % _type)
+        logging.debug("decoding result: {}".format(result))
+        return result
+
+    @staticmethod
+    def mergedicts(dict1, dict2):
+        for k in set(dict1.keys()).union(dict2.keys()):
+            if k in dict1 and k in dict2:
+                if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
+                    yield (k, dict(TlvDecoder.mergedicts(dict1[k], dict2[k])))
+                else:
+                    yield (k, dict2[k])
+            elif k in dict1:
+                yield (k, dict1[k])
+            else:
+                yield (k, dict2[k])
 
     @staticmethod
     def _decode(path, payload):
@@ -256,6 +297,7 @@ class TlvDecoder(object):
         except IndexError:
             raise DecoderException("unable to determine ID from invalid payload")
 
+        _id = None
         if id_len == 1:
             logger.debug("ID: 16 bits")
             try:
@@ -272,8 +314,13 @@ class TlvDecoder(object):
                 _payload = _payload[1:]
             except IndexError:
                 raise DecoderException("missing ID bytes in TLV")
+        else:
+            raise DecoderException("invalid ID length")
         try:
-            _len = _len if _len is not None else _len_type
+            if _len is None:
+                _len = int.from_bytes(_payload[0:_len_type], byteorder="big")
+                logger.info("value length: %d" % _len)
+                _payload = _payload[_len_type:]
             _value = _payload[0:_len]
             logger.debug("value: %s" % hexdump(_value, result="return"))
         except IndexError:
@@ -298,6 +345,7 @@ class TlvDecoder(object):
         else:
             raise DecoderException("invalid TLV type: {}".format(_type >> 6))
         return _id, _value, _type, _payload[_len:]
+
 
 class PayloadEncoder(object):
     def __init__(self, _model):
@@ -330,6 +378,8 @@ class PayloadDecoder(object):
             if content_format == MediaType.TLV.value:
                 return Message(code=Code.CHANGED), TlvDecoder.decode(self.model, path, payload)
             elif content_format == MediaType.TEXT.value:
+                if len(path) != 3 or self.model.is_resource_multi_instance(path[0], path[1], path[2]):
+                    raise Exception("TEXT format should only be used for single non-multiple resource")
                 return Message(code=Code.CHANGED), TextDecoder.decode(self.model, path, payload)
             else:
                 raise Exception("unsupported content format: %s" % content_format)

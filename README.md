@@ -63,8 +63,8 @@ This project is licensed under the terms of [MIT License](LICENSE).
 * [x] implement TLV encoding
 * [x] implement Execute (via handlers)
 * [x] implement Observe (via handlers)
+* [x] implement Write 
 * [ ] implement Cancel Observation (when [this issue](https://github.com/chrysn/aiocoap/issues/30) is resolved)
-* [ ] implement Write 
 * [ ] improve data definition validation
 * [ ] extend with REST API (for instrumenting it using 3rd party software)
 * [ ] provide Dockerfile
