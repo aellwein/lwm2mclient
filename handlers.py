@@ -9,6 +9,18 @@ import time
 log = logging.getLogger("handlers")
 
 
+def handle_firmware_update(*args, **kwargs):
+    log.info("handle_firmware_update(): {}, {}".format(args, kwargs))
+
+
+def handle_disable(*args, **kwargs):
+    log.info("handle_disable(): {}, {}".format(args, kwargs))
+
+
+def handle_update_trigger(*args, **kwargs):
+    log.info("handle_update_trigger(): {}, {}".format(args, kwargs))
+
+
 def handle_reboot(*args, **kwargs):
     log.info("handle_reboot(): {}, {}".format(args, kwargs))
 
