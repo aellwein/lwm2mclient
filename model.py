@@ -9,6 +9,8 @@ log = logging.getLogger("model")
 
 class ClientModel(object):
     def __init__(self, definition_file="lwm2m-object-definitions.json", data_file="data.json"):
+        assert isinstance(definition_file, str), "definition file must be a string"
+        assert isinstance(data_file, str), "data file must be a string"
         with open(definition_file) as f:
             self.definition = load(f)
         with open(data_file) as f:
@@ -84,6 +86,7 @@ class ClientModel(object):
         self.data[str(obj)][str(inst)][str(res)] = content
 
     def apply(self, data):
+        assert isinstance(data, dict), "data must be a dict"
         for obj in data.keys():
             for inst in data[obj].keys():
                 for res in data[obj][inst].keys():
