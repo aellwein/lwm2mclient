@@ -18,7 +18,7 @@ class ClientModel(object):
         # simple validation: check if all data objects are in the definition
         for obj in self.objects():
             if not self.has_definition(obj):
-                exit("%s contains undefined object with ID %s. Aborting." % (data_file, obj))
+                raise AttributeError("%s contains undefined object with ID %s. Aborting." % (data_file, obj))
 
     def objects(self):
         return [x for x in sorted([int(i) for i in self.data.keys()])]
@@ -59,6 +59,9 @@ class ClientModel(object):
                 yield "</%s/%s>" % (obj, inst)
 
     def is_path_valid(self, path):
+        assert isinstance(path, tuple), "should be a tuple"
+        for i in path:
+            assert isinstance(i, int), "'{}' should be an int value".format(i)
         if len(path) == 3:
             _obj = int(path[0])
             _inst = int(path[1])
@@ -92,20 +95,3 @@ class ClientModel(object):
                 for res in data[obj][inst].keys():
                     log.debug("applying %s/%s/%s = %s" % (obj, inst, res, data[obj][inst][res]))
                     self.set_resource(obj, inst, res, data[obj][inst][res])
-
-
-if __name__ == '__main__':
-    model = ClientModel()
-    log.debug("object links: %s" % ",".join(model.get_object_links()))
-    log.debug("objects: %s" % model.objects())
-    for obj in model.objects():
-        log.debug("object %s is multi-instance: %s" % (obj, model.is_object_multi_instance(obj)))
-        log.debug("instances for object %s: %s" % (obj, model.instances(obj)))
-        for inst in model.instances(obj):
-            log.debug("resources for /%s/%s: %s" % (obj, inst, model.resources(obj, inst)))
-            log.debug("===============================================================================================")
-            for res in model.resources(obj, inst):
-                log.debug("resource /%s/%s/%s is multi-instance: %s" % (
-                    obj, inst, res, model.is_resource_multi_instance(obj, inst, res)))
-                log.debug("resource /%s/%s/%s: \"%s\"" % (obj, inst, res, model.resource(obj, inst, res)))
-            log.debug("===============================================================================================")
