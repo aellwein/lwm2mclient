@@ -44,11 +44,25 @@ needs_bytes = lambda n: 1 if n == 0 else int(log(abs(n), 256)) + 1
 
 
 class TlvEncoder(object):
+    """
+    TLV Encoder is responsible to encode data for a specified path to a TLV format
+    (described by the OMA LWM2M Technical Specification).
+    """
+
     def __init__(self):
+        """
+        Not used.
+        """
         pass
 
     @staticmethod
     def encode_object(model, obj):
+        """
+        Encodes a whole LWM2M object into a CoAP message.
+        :param model: model to use
+        :param obj: object ID
+        :return: CoAP message, containing encoded object.
+        """
         if model.is_object_multi_instance(obj):
             _buf = bytearray()
             for inst in model.instances(obj):
@@ -71,6 +85,13 @@ class TlvEncoder(object):
 
     @staticmethod
     def encode_instance(model, obj, inst):
+        """
+        Encodes a whole LWM2M object, given by object ID and instance ID, into a CoAP message.
+        :param model: model to use
+        :param obj: object ID
+        :param inst: instance ID
+        :return: CoAP message, containing encoded object instance.
+        """
         _buf = bytearray()
         for res in model.resources(obj, inst):
             if model.is_resource_readable(obj, inst, res):
@@ -82,6 +103,14 @@ class TlvEncoder(object):
 
     @staticmethod
     def encode_resource(model, obj, inst, res):
+        """
+        Encodes a LWM2M resource, given by object ID, instance ID and resource ID, into a CoAP message.
+        :param model: model to use
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: CoAP message, containing encoded LWM2M resource.
+        """
         if not model.is_resource_multi_instance(obj, inst, res):
             if model.is_resource_readable(obj, inst, res):
                 # single resource queries are returned as TEXT (plain)
