@@ -222,6 +222,10 @@ class TlvEncoder(object):
 
 
 class DecoderException(BaseException):
+    """
+    This exception can be raised by a decoder while decoding a malformed content.
+    """
+
     def __init__(self, message):
         super(DecoderException, self).__init__(message)
         self.message = message
@@ -231,11 +235,25 @@ class DecoderException(BaseException):
 
 
 class TextDecoder(object):
+    """
+    Decoder which is able to decode a payload in TEXT (UTF-8 coded text) format.
+    """
+
     def __init__(self):
+        """
+        Not used.
+        """
         pass
 
     @staticmethod
     def decode(_model, path, payload):
+        """
+        Decode a payload for the given path.
+        :param _model: model to use
+        :param path: path of the resource
+        :param payload: payload to be decoded
+        :return: dictionary containing decoded value, which can be directly applied to the model data.
+        """
         _obj = str(path[0])
         _inst = str(path[1])
         _res = str(path[2])
@@ -266,11 +284,25 @@ class TextDecoder(object):
 
 
 class TlvDecoder(object):
+    """
+    Decoder which is able to decode a Type-Length-Value (TLV) format.
+    """
+
     def __init__(self):
+        """
+        Not used.
+        """
         pass
 
     @staticmethod
     def decode(_model, path, payload):
+        """
+        Decodes a given TLV payload.
+        :param _model: model to use
+        :param path: path of the resource to be decoded
+        :param payload: TLV payload
+        :return: a dictionary containing decoded object instances/resources.
+        """
         logger.debug("decode(path=%s, payload=%s)" % (path, hexdump(payload, result="return")))
         _payload = payload
         result = dict()
@@ -283,6 +315,14 @@ class TlvDecoder(object):
 
     @staticmethod
     def value_from_bytes(_model, path, payload):
+        """
+        Converts decoded data to a dictionary with values of specific types which
+        can be applied to the client data model.
+        :param _model: model to use
+        :param path: path of the resource
+        :param payload:
+        :return:
+        """
         _obj = str(path[0])
         _inst = str(path[1])
         _res = str(path[2])
@@ -312,6 +352,12 @@ class TlvDecoder(object):
 
     @staticmethod
     def mergedicts(dict1, dict2):
+        """
+        Generator which performs a deep merge of given dictionaries.
+        :param dict1: dict to merge
+        :param dict2: dict to merge
+        :return: merged dicts
+        """
         for k in set(dict1.keys()).union(dict2.keys()):
             if k in dict1 and k in dict2:
                 if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
@@ -325,6 +371,12 @@ class TlvDecoder(object):
 
     @staticmethod
     def _decode(path, payload):
+        """
+        Decodes the payload at the given path
+        :param path: path to use
+        :param payload: payload to decode
+        :return: id, value, type and decoded data
+        """
         try:
             _type = payload[0]
         except IndexError:
@@ -397,10 +449,24 @@ class TlvDecoder(object):
 
 
 class PayloadEncoder(object):
+    """
+    Payload encoder is responsible for encoding the data for the given path, into an appropriate
+    CoAP transport payload/message.
+    """
+
     def __init__(self, _model):
+        """
+        Creates a new payload encoder.
+        :param _model: model to use
+        """
         self.model = _model
 
     def encode(self, path):
+        """
+        Encodes the data at the given path (tuple for object ID, instance ID, resource ID).
+        :param path: tuple for object ID, instance ID, resource ID
+        :return: CoAP message containing encoded data
+        """
         if not self.model.is_path_valid(path):
             return Message(code=Code.NOT_FOUND)
         path_len = len(path)
