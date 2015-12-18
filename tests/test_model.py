@@ -132,5 +132,50 @@ def test_is_resource_writable(model):
     assert model.is_resource_writable(3, 0, 4) is False, "must not be writable"
 
 
+def test_is_resource_executable(model):
+    assert model.is_resource_executable(3, 0, 4), "must be executable"
+    assert model.is_resource_executable(0, 0, 0) is False, "must not be executable"
+    assert model.is_resource_executable(3, 0, 0) is False, "must not be executable"
+
+
+def test_instance_iter(model):
+    instances = list(model.instance_iter())
+    for obj in model.objects():
+        for instance in model.instances(obj):
+            assert (str(obj), str(instance)) in instances
+
+
+def test_resource_iter(model):
+    resources = list(model.resource_iter())
+    for obj in model.objects():
+        for inst in model.instances(obj):
+            for res in model.resources(obj, inst):
+                assert (str(obj), str(inst), str(res)) in resources
+
+
 def test_get_object_links(model):
-    assert ",".join(model.get_object_links()) == "</1/0>,</3/0>,</5/0>,</6/0>", "should be in this format"
+    obj_links = ",".join(model.get_object_links())
+    for obj in model.objects():
+        for inst in model.instances(obj):
+            assert "</%s/%s>" % (obj, inst) in obj_links
+
+
+def test_set_resource_on_read_only(model):
+    r = model.resource(3, 0, 0)
+    model.set_resource(3, 0, 0, "blah")
+    assert r == model.resource(3, 0, 0), "resource /3/0/0 must not be changed"
+
+
+def test_set_resource(model):
+    r = model.resource(3, 0, 14)
+    new_value = "+1" if r == "+2" else "+2"
+    model.set_resource(3, 0, 14, new_value)
+    assert new_value == model.resource(3, 0, 14), "resource /3/0/14 must be changed"
+
+
+def test_apply(model):
+    r = model.resource(3, 0, 14)
+    new_value = "+1" if r == "+2" else "+2"
+    change = {"3": {"0": {"14": new_value}}}
+    model.apply(change)
+    assert new_value == model.resource(3, 0, 14), "resource /3/0/14 must be changed"
