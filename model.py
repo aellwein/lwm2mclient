@@ -125,23 +125,43 @@ class ClientModel(object):
         """
         return self.definition[str(obj)]["resourcedefs"][str(res)]["instancetype"] == "multiple"
 
+    def instance_iter(self):
+        """
+        Generator which generates a list of tuples of all object instances contained in the data, e.g.:
+        [('1','0'),('3','0'),('6','0') ... ]
+        :return: list of tuples of all object instances
+        """
+        for obj in self.objects():
+            for inst in self.instances(obj):
+                yield (str(obj), str(inst))
+
     def resource_iter(self):
+        """
+        Generator which generates a list of tuples of all resources contained in the data, e.g.:
+        [('1','0','0'),('1','0','1'), ... ]
+        :return: list of tuples of all resources
+        """
         for obj in self.objects():
             for inst in self.instances(obj):
                 for res in self.resources(obj, inst):
                     yield (str(obj), str(inst), str(res))
 
-    def instance_iter(self):
-        for obj in self.objects():
-            for inst in self.instances(obj):
-                yield (str(obj), str(inst))
-
     def get_object_links(self):
+        """
+        Generator which can be used to create a list of object links (as presented in the client's registration),
+        in form of </objectID/instanceID>, ...
+        :return: a generator producing object links
+        """
         for obj in self.objects():
             for inst in self.instances(obj):
                 yield "</%s/%s>" % (obj, inst)
 
     def is_path_valid(self, path):
+        """
+        Checks if a given path tuple (objectID, instanceID, resourceID) is valid.
+        :param path: path to check
+        :return: True, if the given path is valid.
+        """
         assert isinstance(path, tuple), "should be a tuple"
         for i in path:
             assert isinstance(i, int), "'{}' should be an int value".format(i)
@@ -161,22 +181,57 @@ class ClientModel(object):
             raise AttributeError("invalid path length: %d." % len(path))
 
     def is_resource_readable(self, obj, inst, res):
+        """
+        Checks if the resource represented by the given objectID/instanceID/resourceID is readable.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: True, if the resource is readable.
+        """
         _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
         return False if _ops == "NONE" else "R" in _ops
 
     def is_resource_writable(self, obj, inst, res):
+        """
+        Checks if the resource represented by the given objectID/instanceID/resourceID is writable.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: True, if the resource is writable.
+        """
         _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
         return False if _ops == "NONE" else "W" in _ops
 
     def is_resource_executable(self, obj, inst, res):
+        """
+        Checks if the resource represented by the given objectID/instanceID/resourceID is executable.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: True, if the resource is executable.
+        """
         _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
         return False if _ops == "NONE" else "E" in _ops
 
     def set_resource(self, obj, inst, res, content):
+        """
+        Sets the data of the resource for given objectID/instanceID/resourceID.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :param content: content of the resource to set
+        :return:
+        """
         if self.is_resource_writable(obj, inst, res):
             self.data[str(obj)][str(inst)][str(res)] = content
 
     def apply(self, data):
+        """
+        Applies one or more resources to the data model.
+        :param data: resources to change, must follow the format:
+                 { objectID : { instanceID : { resourceID : "content" }}}
+        :return:
+        """
         assert isinstance(data, dict), "data must be a dict"
         for obj in data.keys():
             for inst in data[obj].keys():
