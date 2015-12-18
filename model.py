@@ -54,6 +54,7 @@ class ClientModel(object):
     """
     A client model holds the data which is used by the LWM2M client.
     """
+
     def __init__(self, definition_loader=DefinitionFileLoader(), data_loader=DataFileLoader()):
         """
         Creates a new client model using given definition and data loaders.
@@ -68,25 +69,60 @@ class ClientModel(object):
                 raise AttributeError("data file contains undefined object with ID %s. Aborting." % obj)
 
     def objects(self):
+        """
+        :return: returns list of all LWM2M objects present in this model.
+        """
         return [x for x in sorted([int(i) for i in self.data.keys()])]
 
     def instances(self, obj):
+        """
+        :param obj: object ID to get instances for
+        :return: list of all instances of the given object present in this model.
+        """
         _insts = self.data[str(obj)]
         return [x for x in sorted([int(i) for i in _insts.keys()])]
 
     def resources(self, obj, inst=0):
+        """
+        :param obj: object ID to get resources for
+        :param inst: instance ID to get resources for
+        :return: list of all resources of the given object ID/instance ID
+        """
         return [x for x in sorted([int(i) for i in self.data[str(obj)][str(inst)].keys()])]
 
     def resource(self, obj, inst, res):
+        """
+        Retrieves a specific resource for the given object ID, instance ID, resource ID.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: resource for the given path
+        """
         return self.data[str(obj)][str(inst)][str(res)]
 
     def has_definition(self, obj):
+        """
+        :param obj: object ID to check
+        :return: True, if the given object ID is present in this client model.
+        """
         return str(obj) in self.definition.keys()
 
     def is_object_multi_instance(self, obj):
+        """
+        Check if an object is a multi-instance object according to the existing definition.
+        :param obj: object ID to check
+        :return: True, if the given object ID is defined as a multi-instance object.
+        """
         return self.definition[str(obj)]["instancetype"] == "multiple"
 
     def is_resource_multi_instance(self, obj, inst, res):
+        """
+        Check if a resource is a multi-instance resource according to the existing definition.
+        :param obj: object ID
+        :param inst: instance ID
+        :param res: resource ID
+        :return: True, if a resource defined for object ID + instance ID + resource ID is a multi-instance resource.
+        """
         return self.definition[str(obj)]["resourcedefs"][str(res)]["instancetype"] == "multiple"
 
     def resource_iter(self):
@@ -125,15 +161,20 @@ class ClientModel(object):
             raise AttributeError("invalid path length: %d." % len(path))
 
     def is_resource_readable(self, obj, inst, res):
-        _ops = self.definition[obj]["resourcedefs"][str(res)]["operations"]
+        _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
         return False if _ops == "NONE" else "R" in _ops
 
+    def is_resource_writable(self, obj, inst, res):
+        _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
+        return False if _ops == "NONE" else "W" in _ops
+
     def is_resource_executable(self, obj, inst, res):
-        _ops = self.definition[obj]["resourcedefs"][str(res)]["operations"]
+        _ops = self.definition[str(obj)]["resourcedefs"][str(res)]["operations"]
         return False if _ops == "NONE" else "E" in _ops
 
     def set_resource(self, obj, inst, res, content):
-        self.data[str(obj)][str(inst)][str(res)] = content
+        if self.is_resource_writable(obj, inst, res):
+            self.data[str(obj)][str(inst)][str(res)] = content
 
     def apply(self, data):
         assert isinstance(data, dict), "data must be a dict"

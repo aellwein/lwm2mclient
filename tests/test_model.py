@@ -103,6 +103,34 @@ def test_path_with_invalid_instance(model):
         assert model.resource(3, 1, 0)
 
 
-def test_path_with_invalid_instance(model):
+def test_path_with_invalid_resource(model):
     with pytest.raises(KeyError):
         assert model.resource(3, 0, 99999)
+
+
+def test_is_object_multi_instance(model):
+    assert model.is_object_multi_instance(1), "server object is a multi-instance object"
+    assert model.is_object_multi_instance(3) is False, "device object is a single-instance object"
+
+
+def test_is_resource_multi_instance(model):
+    assert model.is_resource_multi_instance(3, 0, 11), "must be a multi-instance resource"
+    assert model.is_resource_multi_instance(3, 0, 0) is False, "must be a single-instance resource"
+
+
+def test_is_resource_readable(model):
+    assert model.is_resource_readable(3, 0, 0), "must be readable"
+    assert model.is_resource_readable(1, 0, 1), "must be readable"
+    assert model.is_resource_readable(0, 0, 0) is False, "must not be readable"
+    assert model.is_resource_readable(3, 0, 4) is False, "must not be readable"
+
+
+def test_is_resource_writable(model):
+    assert model.is_resource_writable(3, 0, 13), "must be writable"
+    assert model.is_resource_writable(5, 0, 0), "must be writable"
+    assert model.is_resource_writable(0, 0, 0) is False, "must not be writable"
+    assert model.is_resource_writable(3, 0, 4) is False, "must not be writable"
+
+
+def test_get_object_links(model):
+    assert ",".join(model.get_object_links()) == "</1/0>,</3/0>,</5/0>,</6/0>", "should be in this format"
