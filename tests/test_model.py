@@ -1,70 +1,68 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
+import json
 
 import pytest
-from model import ClientModel
+
+from model import ClientModel, DefinitionFileLoader, DataFileLoader
 
 
 @pytest.fixture
-def empty_data(tmpdir):
-    json = "{}"
-    fname = os.path.join(tmpdir.strpath, "emptydata.json")
-    with open(fname, "w") as f:
-        f.writelines(json)
-        return fname
+def empty_data_loader():
+    class Loader(object):
+        def __init__(self):
+            pass
+
+        def load(self):
+            return json.loads("{}")
+
+    return Loader()
 
 
 @pytest.fixture
-def empty_definition(tmpdir):
-    json = "{}"
-    fname = os.path.join(tmpdir.strpath, "emptydefinition.json")
-    with open(fname, "w") as f:
-        f.writelines(json)
-        return fname
+def empty_definition_loader():
+    class Loader(object):
+        def __init__(self):
+            pass
+
+        def load(self):
+            return json.loads("{}")
+
+    return Loader()
 
 
 @pytest.fixture
-def some_data(tmpdir):
-    json = "{ \"0\" : {} }"
-    fname = os.path.join(tmpdir.strpath, "somedata.json")
-    with open(fname, "w") as f:
-        f.writelines(json)
-        return fname
+def model(definition_loader=DefinitionFileLoader(), data_loader=DataFileLoader()):
+    return ClientModel(definition_loader=definition_loader, data_loader=data_loader)
 
 
-@pytest.fixture
-def model():
-    return ClientModel()
+def test_invalid_definition_loader():
+    with pytest.raises(AttributeError):
+        ClientModel(definition_loader=1)
 
 
-def test_invalid_definition_file():
-    with pytest.raises(AssertionError):
-        ClientModel(definition_file=1)
-
-
-def test_invalid_data_file():
-    with pytest.raises(AssertionError):
-        ClientModel(data_file=1.0)
+def test_invalid_data_loader():
+    with pytest.raises(AttributeError):
+        ClientModel(data_loader=1)
 
 
 def test_non_existing_definition_file_raises_error():
     with pytest.raises(FileNotFoundError):
-        ClientModel(definition_file="nonexisting.json")
+        ClientModel(definition_loader=DefinitionFileLoader(definition_file="nonexisting.json"))
 
 
 def test_non_existing_data_file_raises_error():
     with pytest.raises(FileNotFoundError):
-        ClientModel(data_file="nonexisting.json")
+        ClientModel(data_loader=DataFileLoader(data_file="nonexisting.json"))
 
 
-def test_use_undefined_object(empty_definition, some_data):
+def test_use_undefined_object(empty_definition_loader):
     with pytest.raises(AttributeError):
-        ClientModel(definition_file=empty_definition, data_file=some_data)
+        ClientModel(definition_loader=empty_definition_loader)
 
 
-def test_objects(empty_data):
-    model = ClientModel(data_file=empty_data)
+def test_objects(empty_data_loader):
+    model = ClientModel(data_loader=empty_data_loader)
     assert len(model.objects()) == 0, "should be empty"
 
 
@@ -93,3 +91,18 @@ def test_path_object_id_and_instance_id_is_valid(model):
 
 def test_path_object_id_instance_id_and_resource_id_is_valid(model):
     assert model.is_path_valid((3, 0, 1)), "path for objectID with instanceID must be valid."
+
+
+def test_path_with_invalid_object(model):
+    with pytest.raises(KeyError):
+        assert model.resource(999999, 0, 0)
+
+
+def test_path_with_invalid_instance(model):
+    with pytest.raises(KeyError):
+        assert model.resource(3, 1, 0)
+
+
+def test_path_with_invalid_instance(model):
+    with pytest.raises(KeyError):
+        assert model.resource(3, 0, 99999)

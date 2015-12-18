@@ -3,22 +3,69 @@
 import logging
 from json import load
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("model")
 
 
-class ClientModel(object):
-    def __init__(self, definition_file="lwm2m-object-definitions.json", data_file="data.json"):
+class DefinitionFileLoader(object):
+    """
+    This loader is responsible for loading object definition to the client from a JSON file.
+    """
+
+    def __init__(self, definition_file="lwm2m-object-definitions.json"):
+        """
+        Creates a new JSON definition file loader.
+        :param definition_file: JSON definition file to load.
+        """
         assert isinstance(definition_file, str), "definition file must be a string"
+        self.definition_file = definition_file
+
+    def load(self):
+        """
+        Loads JSON definition file.
+        :return: dictionary containing object definitions.
+        """
+        with open(self.definition_file) as f:
+            return load(f)
+
+
+class DataFileLoader(object):
+    """
+    This loader is responsible for loading object data to the client from a JSON file.
+    """
+
+    def __init__(self, data_file="data.json"):
+        """
+        Creates a new JSON data file loader.
+        :param data_file: JSON data file
+        """
         assert isinstance(data_file, str), "data file must be a string"
-        with open(definition_file) as f:
-            self.definition = load(f)
-        with open(data_file) as f:
-            self.data = load(f)
+        self.data_file = data_file
+
+    def load(self):
+        """
+        Loads LWM2M object data from a JSON file.
+        :return: dictionary containing LWM2M object data.
+        """
+        with open(self.data_file) as f:
+            return load(f)
+
+
+class ClientModel(object):
+    """
+    A client model holds the data which is used by the LWM2M client.
+    """
+    def __init__(self, definition_loader=DefinitionFileLoader(), data_loader=DataFileLoader()):
+        """
+        Creates a new client model using given definition and data loaders.
+        :param definition_loader: definition loader, loads from a JSON file "lwm2m-object-definitions.json" by default
+        :param data_loader: data loader, loads from a JSON file "data.json" by default.
+        """
+        self.definition = definition_loader.load()
+        self.data = data_loader.load()
         # simple validation: check if all data objects are in the definition
         for obj in self.objects():
             if not self.has_definition(obj):
-                raise AttributeError("%s contains undefined object with ID %s. Aborting." % (data_file, obj))
+                raise AttributeError("data file contains undefined object with ID %s. Aborting." % obj)
 
     def objects(self):
         return [x for x in sorted([int(i) for i in self.data.keys()])]

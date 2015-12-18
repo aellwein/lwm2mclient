@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
-
+import sys
 from setuptools import setup
+
+needs_pytest = {'pytest', 'test', 'ptr'}.intersection(sys.argv)
+pytest_runner = ['pytest-runner'] if needs_pytest else []
 
 setup(
         name="lwm2mclient",
