@@ -20,5 +20,11 @@ def client(model):
     return Client(model)
 
 
-def test_bla(client, model):
+def test_resource_handlers_are_created(client, model):
     assert client.model == model
+    resources = list(model.resource_iter())
+    for res in resources:
+        assert res in client._resources
+    instances = list(model.instance_iter())
+    for inst in instances:
+        assert inst in client._resources
