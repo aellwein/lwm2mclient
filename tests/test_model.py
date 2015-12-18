@@ -7,10 +7,9 @@
 # described in the accompanying LICENSE file.
 
 import json
-
 import pytest
 
-from model import ClientModel, DefinitionFileLoader, DataFileLoader
+from model import *
 
 
 @pytest.fixture

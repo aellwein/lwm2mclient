@@ -10,15 +10,18 @@ import logging
 from enum import Enum
 from math import log
 from struct import pack, unpack
+
 from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
 from hexdump import hexdump
-from model import ClientModel
 
 logger = logging.getLogger("encoder")
 
 
 class TlvType(Enum):
+    """
+    TLV types, used in TLV format as described in LWM2M Technical Specification.
+    """
     OBJECT_INSTANCE = 0b00000000
     RESOURCE_INSTANCE = 0b01000000
     MULTIPLE_RESOURCE = 0b10000000
@@ -26,6 +29,9 @@ class TlvType(Enum):
 
 
 class MediaType(Enum):
+    """
+    Acknowledged media types (from content format CoAP option).
+    """
     LINK = 40
     TEXT = 1541
     TLV = 1542
@@ -82,7 +88,9 @@ class TlvEncoder(object):
                 _r = model.resource(obj, inst, res)
                 _payload = str(_r).encode()
                 logging.debug("encode_resource(): %s" % hexdump(_payload, result="return"))
-                return Message(code=Code.CONTENT, payload=_payload)
+                msg = Message(code=Code.CONTENT, payload=_payload)
+                msg.opt.content_format = MediaType.TEXT.value
+                return msg
             else:
                 return Message(code=Code.METHOD_NOT_ALLOWED)
         else:
@@ -150,7 +158,7 @@ class TlvEncoder(object):
 
     @staticmethod
     def _get_resource_payload(model, obj, inst, res, res_idx=None):
-        _type = model.definition[obj]["resourcedefs"][str(res)]["type"]
+        _type = model.definition[str(obj)]["resourcedefs"][str(res)]["type"]
         if res_idx is not None:
             _content = model.resource(obj, inst, res)[res_idx]
             logger.debug("_resource_to_tlv(): %s/%s/%s, idx=%s, type=%s, content=\"%s\"" % (
@@ -199,14 +207,17 @@ class TextDecoder(object):
 
     @staticmethod
     def decode(_model, path, payload):
-        _obj = path[0]
-        _inst = path[1]
-        _res = path[2]
+        _obj = str(path[0])
+        _inst = str(path[1])
+        _res = str(path[2])
         result = dict()
         result[_obj] = dict()
         result[_obj][_inst] = dict()
-        _payload = payload.decode()
-        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
+        try:
+            _payload = payload.decode()
+        except UnicodeDecodeError as e:
+            raise DecoderException(e.reason)
+        _type = _model.definition[_obj]["resourcedefs"][_res]["type"]
         if _type == "integer":
             result[_obj][_inst][_res] = int(_payload)
         elif _type == "string":
@@ -238,18 +249,21 @@ class TlvDecoder(object):
             _id, _value, _type, _payload = TlvDecoder._decode(path, _payload)
             _value = TlvDecoder.value_from_bytes(_model, (path[0], path[1], str(_id),), _value)
             result = dict(TlvDecoder.mergedicts(result, _value))
-        logger.info("decode result: %s" % result)
+        logger.debug("decode result: %s" % result)
         return result
 
     @staticmethod
     def value_from_bytes(_model, path, payload):
-        _obj = path[0]
-        _inst = path[1]
-        _res = path[2]
+        _obj = str(path[0])
+        _inst = str(path[1])
+        _res = str(path[2])
         result = dict()
         result[_obj] = dict()
         result[_obj][_inst] = dict()
-        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
+        try:
+            _type = _model.definition[_obj]["resourcedefs"][_res]["type"]
+        except KeyError:
+            raise DecoderException("invalid resource path: /%s/%s/%s" % (_obj, _inst, _res))
         if _type == "integer":
             result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
         elif _type == "string":
@@ -373,27 +387,56 @@ class PayloadEncoder(object):
             return Message(code=Code.BAD_REQUEST)
 
 
+class ContentFormatException(BaseException):
+    """
+    This exception is raised, if a given content format is either invalid or it cannot be applied
+    for a specified path (for instance, a TEXT format cannot be applied for multi-instance resource).
+    """
+
+    def __init__(self, message):
+        super(ContentFormatException, self).__init__(message)
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 class PayloadDecoder(object):
+    """
+    Payload decoder takes a payload received from a server and decodes it into value, which is to be applied
+    to client's data. For LWM2M payload, there are different formats, such as TEXT or TLV (Type-Length-Value coded).
+    These formats are reflected in MediaType enumeration.
+    """
+
     def __init__(self, _model):
+        """
+        Creates a payload decoder with given client model.
+        :param _model: client model to use
+        """
         self.model = _model
 
     def decode(self, path, payload, content_format):
+        """
+        Decodes the given payload, in given content format for given path.
+        :param path: path of the object, instance or resource to decode payload for
+        :param payload: byte payload to decode
+        :param content_format: content format as reflected in MediaType enum.
+        :return: Message with appropriate error code and data to apply to the model,
+                 as accepted by ClientModel.apply() function. If error code is not CHANGED,
+                 no data is returned.
+        """
         if not self.model.is_path_valid(path):
             return Message(code=Code.NOT_FOUND), None
         try:
             if content_format == MediaType.TLV.value:
+                if len(path) < 2:
+                    path = (path[0], 0,)
                 return Message(code=Code.CHANGED), TlvDecoder.decode(self.model, path, payload)
             elif content_format == MediaType.TEXT.value:
                 if len(path) != 3 or self.model.is_resource_multi_instance(path[0], path[1], path[2]):
-                    raise Exception("TEXT format should only be used for single non-multiple resource")
+                    raise ContentFormatException("TEXT format should only be used for single non-multiple resource")
                 return Message(code=Code.CHANGED), TextDecoder.decode(self.model, path, payload)
             else:
-                raise Exception("unsupported content format: %s" % content_format)
+                raise ContentFormatException("unsupported content format: %s" % content_format)
         except DecoderException as e:
             return Message(code=Code.BAD_REQUEST, payload=e.message.encode()), None
-
-
-if __name__ == '__main__':
-    model = ClientModel()
-    encoder = PayloadEncoder(model)
-    logger.debug("encode: {}".format(encoder.encode(("3",))))
