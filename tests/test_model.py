@@ -14,7 +14,7 @@ from model import *
 
 @pytest.fixture
 def empty_data_loader():
-    class Loader(object):
+    class Loader:
         def __init__(self):
             pass
 
@@ -26,7 +26,7 @@ def empty_data_loader():
 
 @pytest.fixture
 def empty_definition_loader():
-    class Loader(object):
+    class Loader:
         def __init__(self):
             pass
 

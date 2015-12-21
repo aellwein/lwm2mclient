@@ -12,7 +12,7 @@ from json import load
 log = logging.getLogger("model")
 
 
-class DefinitionFileLoader(object):
+class DefinitionFileLoader:
     """
     This loader is responsible for loading object definition to the client from a JSON file.
     """
@@ -34,7 +34,7 @@ class DefinitionFileLoader(object):
             return load(f)
 
 
-class DataFileLoader(object):
+class DataFileLoader:
     """
     This loader is responsible for loading object data to the client from a JSON file.
     """
@@ -56,7 +56,7 @@ class DataFileLoader(object):
             return load(f)
 
 
-class ClientModel(object):
+class ClientModel:
     """
     A client model holds the data which is used by the LWM2M client.
     """
