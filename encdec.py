@@ -43,7 +43,7 @@ class MediaType(Enum):
 needs_bytes = lambda n: 1 if n == 0 else int(log(abs(n), 256)) + 1
 
 
-class TlvEncoder(object):
+class TlvEncoder:
     """
     TLV Encoder is responsible to encode data for a specified path to a TLV format
     (described by the OMA LWM2M Technical Specification).
@@ -195,26 +195,17 @@ class TlvEncoder(object):
         else:
             _content = model.resource(obj, inst, res)
             logger.debug("_resource_to_tlv(): %s/%s/%s, type=%s, content=\"%s\"" % (obj, inst, res, _type, _content))
-        if _type == "integer":
-            i = int(_content)
-            _payload = i.to_bytes(int(i.bit_length() / 8) + 1, byteorder="big", signed=True)
-        elif _type == "string":
-            _payload = _content.encode()
-        elif _type == "float":
-            f = float(_content)
-            if float.fromhex("0x0.000002P-126") <= f <= float.fromhex("0x1.fffffeP+127"):
-                # fits in a float
-                _payload = pack(">f", f)
-            else:
-                # use double
-                _payload = pack(">d", f)
-        elif _type == "boolean":
-            _payload = b'\x01' if _content else b'\x00'
-        elif _type == "time":
-            _payload = pack(">q", int(_content))
-        elif _type == "opaque":
-            _payload = bytearray.fromhex(_content)
-        else:
+        converter = dict(
+                integer=lambda p: int(p).to_bytes(int(int(p).bit_length() / 8) + 1, byteorder="big", signed=True),
+                string=lambda p: p.encode(),
+                float=lambda p: pack(">f", float(p)) if float.fromhex("0x0.000002P-126") <= float(p) <= float.fromhex(
+                        "0x1.fffffeP+127") else pack(">d", float(p)),
+                boolean=lambda p: b'\x01' if p else b'\x00',
+                time=lambda p: pack(">q", int(p)),
+                opaque=lambda p: bytearray.fromhex(p))
+        try:
+            _payload = converter[_type](_content)
+        except KeyError:
             raise TypeError(
                     "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
         logger.debug("payload: %s" % hexdump(_payload, result="return"))
@@ -234,7 +225,7 @@ class DecoderException(BaseException):
         return self.message
 
 
-class TextDecoder(object):
+class TextDecoder:
     """
     Decoder which is able to decode a payload in TEXT (UTF-8 coded text) format.
     """
@@ -265,25 +256,24 @@ class TextDecoder(object):
         except UnicodeDecodeError as e:
             raise DecoderException(e.reason)
         _type = _model.definition[_obj]["resourcedefs"][_res]["type"]
-        if _type == "integer":
-            result[_obj][_inst][_res] = int(_payload)
-        elif _type == "string":
-            result[_obj][_inst][_res] = _payload
-        elif _type == "float":
-            result[_obj][_inst][_res] = float(_payload)
-        elif _type == "boolean":
-            result[_obj][_inst][_res] = True if _payload == "1" else False
-        elif _type == "time":
-            result[_obj][_inst][_res] = int(_payload)
-        elif _type == "opaque":
-            result[_obj][_inst][_res] = payload.hex()
-        else:
+        converter = dict(integer=lambda p: int(p),
+                         string=lambda p: p,
+                         float=lambda p: float(p),
+                         boolean=lambda p: True if p == "1" else False,
+                         time=lambda p: int(p),
+                         opaque=lambda p: p.hex())
+        try:
+            result[_obj][_inst][_res] = converter[_type](_payload)
+        except KeyError:
             raise TypeError("unknown type: %s" % _type)
         logging.debug("result of TEXT decoding: {}".format(result))
         return result
 
 
-class TlvDecoder(object):
+class TlvDecoderVisitor:
+    pass
+
+class TlvDecoder:
     """
     Decoder which is able to decode a Type-Length-Value (TLV) format.
     """
@@ -307,48 +297,55 @@ class TlvDecoder(object):
         _payload = payload
         result = dict()
         while len(_payload) != 0:
-            _id, _value, _type, _payload = TlvDecoder._decode(path, _payload)
-            _value = TlvDecoder.value_from_bytes(_model, (path[0], path[1], str(_id),), _value)
-            result = dict(TlvDecoder.mergedicts(result, _value))
+            _id, _value, _type, _payload = TlvDecoder._decode(_payload)
+            if _type == TlvType.OBJECT_INSTANCE:
+                result = dict(TlvDecoder.mergedicts(result, TlvDecoder.decode_object_instance()))
+            elif _type == TlvType.MULTIPLE_RESOURCE:
+                result = dict(TlvDecoder.mergedicts(result, TlvDecoder.decode_multiple_resource()))
+            elif _type == TlvType.RESOURCE_INSTANCE:
+                result = dict(TlvDecoder.mergedicts(result, TlvDecoder.decode_resource_instance()))
+            elif _type == TlvType.RESOURCE_VALUE:
+                result = dict(TlvDecoder.mergedicts(result, TlvDecoder.decode_resource_value()))
+            else:
+                raise DecoderException("invalid type: %d" % _type)
         logger.debug("decode result: %s" % result)
         return result
 
     @staticmethod
-    def value_from_bytes(_model, path, payload):
-        """
-        Converts decoded data to a dictionary with values of specific types which
-        can be applied to the client data model.
-        :param _model: model to use
-        :param path: path of the resource
-        :param payload:
-        :return:
-        """
+    def decode_object_instance():
+        pass
+
+    @staticmethod
+    def decode_multiple_resource():
+        pass
+
+    @staticmethod
+    def decode_resource_instance():
+        pass
+
+    @staticmethod
+    def decode_resource_value():
+        pass
+
+    @staticmethod
+    def get_value(_model, path, payload):
         _obj = str(path[0])
         _inst = str(path[1])
         _res = str(path[2])
-        result = dict()
-        result[_obj] = dict()
-        result[_obj][_inst] = dict()
         try:
             _type = _model.definition[_obj]["resourcedefs"][_res]["type"]
         except KeyError:
             raise DecoderException("invalid resource path: /%s/%s/%s" % (_obj, _inst, _res))
-        if _type == "integer":
-            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
-        elif _type == "string":
-            result[_obj][_inst][_res] = payload.decode()
-        elif _type == "float":
-            result[_obj][_inst][_res] = unpack("f", payload)
-        elif _type == "boolean":
-            result[_obj][_inst][_res] = True if payload[0] == 1 else False
-        elif _type == "time":
-            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
-        elif _type == "opaque":
-            result[_obj][_inst][_res] = payload.hex()
-        else:
+        converter = dict(integer=lambda p: int.from_bytes(p, byteorder="big"),
+                         string=lambda p: p.decode(),
+                         float=lambda p: unpack("f", p),
+                         boolean=lambda p: True if p[0] == 1 else False,
+                         time=lambda p: int.from_bytes(p, byteorder="big"),
+                         opaque=lambda p: p.hex())
+        try:
+            return converter[_type](payload)
+        except KeyError:
             raise TypeError("unknown type: %s" % _type)
-        logging.debug("decoding result: {}".format(result))
-        return result
 
     @staticmethod
     def mergedicts(dict1, dict2):
@@ -370,10 +367,9 @@ class TlvDecoder(object):
                 yield (k, dict2[k])
 
     @staticmethod
-    def _decode(path, payload):
+    def _decode(payload):
         """
-        Decodes the payload at the given path
-        :param path: path to use
+        Decodes the payload.
         :param payload: payload to decode
         :return: id, value, type and decoded data
         """
@@ -430,25 +426,25 @@ class TlvDecoder(object):
         if _type >> 6 == 0b00:
             # OBJECT_INSTANCE
             logger.debug("type = OBJECT_INSTANCE")
-            pass
+            _typ = TlvType.OBJECT_INSTANCE
         elif _type >> 6 == 0b01:
             # RESOURCE_INSTANCE
             logger.debug("type = RESOURCE_INSTANCE")
-            pass
+            _typ = TlvType.RESOURCE_INSTANCE
         elif _type >> 6 == 0b10:
             # MULTIPLE_RESOURCE
             logger.debug("type = MULTIPLE_RESOURCE")
-            pass
+            _typ = TlvType.MULTIPLE_RESOURCE
         elif _type >> 6 == 0b11:
             # RESOURCE_VALUE
             logger.debug("type = RESOURCE_VALUE")
-            pass
+            _typ = TlvType.RESOURCE_VALUE
         else:
             raise DecoderException("invalid TLV type: {}".format(_type >> 6))
-        return _id, _value, _type, _payload[_len:]
+        return _id, _value, _typ, _payload[_len:]
 
 
-class PayloadEncoder(object):
+class PayloadEncoder:
     """
     Payload encoder is responsible for encoding the data for the given path, into an appropriate
     CoAP transport payload/message.
@@ -496,7 +492,7 @@ class ContentFormatException(BaseException):
         return self.message
 
 
-class PayloadDecoder(object):
+class PayloadDecoder:
     """
     Payload decoder takes a payload received from a server and decodes it into value, which is to be applied
     to client's data. For LWM2M payload, there are different formats, such as TEXT or TLV (Type-Length-Value coded).
@@ -524,8 +520,6 @@ class PayloadDecoder(object):
             return Message(code=Code.NOT_FOUND), None
         try:
             if content_format == MediaType.TLV.value:
-                if len(path) < 2:
-                    path = (path[0], 0,)
                 return Message(code=Code.CHANGED), TlvDecoder.decode(self.model, path, payload)
             elif content_format == MediaType.TEXT.value:
                 if len(path) != 3 or self.model.is_resource_multi_instance(path[0], path[1], path[2]):
