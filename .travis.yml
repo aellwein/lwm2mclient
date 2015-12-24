@@ -8,6 +8,6 @@ install:
   - python setup.py install
   - pip install coveralls
 script:
-  - coverage run --source=model,encdec,client setup.py test
+  - coverage run --source=model,decoder,encoder,client setup.py test
 after_success:
   - coveralls

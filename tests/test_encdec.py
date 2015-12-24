@@ -5,6 +5,7 @@
 #
 # lwm2mclient is free software, this file is published under the MIT license as
 # described in the accompanying LICENSE file.
+
 import json
 
 import logging
