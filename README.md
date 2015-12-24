@@ -1,7 +1,7 @@
 
 # lwm2mclient
 
-A customizable LWM2M client written in Python 3.
+A customizable Lightweight M2M (LWM2M) client written in Python 3.
 
 # Installation
 
@@ -13,7 +13,7 @@ A customizable LWM2M client written in Python 3.
 
 ## Running The Client
 
-Use ``python3 client.py`` command to connect LWM2M server listening on udp://localhost:5683 
+Use ``python3 client.py`` command to connect to a LWM2M server listening on udp://localhost:5683 
 (for instance, a [Leshan](http://www.eclipse.org/leshan/) server).
 
 ## Client Data Model
