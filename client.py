@@ -11,7 +11,9 @@ from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
 from aiocoap.protocol import Context
 from aiocoap.resource import ObservableResource
-from encdec import PayloadEncoder, PayloadDecoder
+
+from decoder.decoder import PayloadDecoder
+from encoder.encoder import PayloadEncoder
 from handlers import *
 from model import ClientModel
 

@@ -7,9 +7,13 @@
 # described in the accompanying LICENSE file.
 import json
 
+import logging
 import pytest
+from aiocoap.numbers.codes import Code
 
-from encdec import *
+from common import MediaType
+from decoder.decoder import PayloadDecoder, ContentFormatException
+from encoder.encoder import PayloadEncoder
 from model import ClientModel
 
 logging.basicConfig(level=logging.CRITICAL)
