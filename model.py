@@ -169,8 +169,6 @@ class ClientModel:
         :return: True, if the given path is valid.
         """
         assert isinstance(path, tuple), "should be a tuple"
-        for i in path:
-            assert isinstance(i, int), "'{}' should be an int value".format(i)
         if len(path) == 3:
             _obj = int(path[0])
             _inst = int(path[1])
