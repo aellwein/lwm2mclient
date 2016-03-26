@@ -50,6 +50,10 @@ class TextDecoder:
     """
 
     def __init__(self, model):
+        """
+        Creates a new decoder for TEXT format.
+        :param model: client data model to use
+        """
         self.model = model
 
     def decode(self, path, payload):
@@ -90,6 +94,10 @@ class TlvDecoder:
     """
 
     def __init__(self, model):
+        """
+        Creates a new decoder for TLV format.
+        :param model: client data model to use
+        """
         self.model = model
 
     def decode(self, path, payload):
@@ -102,13 +110,12 @@ class TlvDecoder:
         logger.debug("decode(path=%s, payload=%s)" % (path, hexdump(payload, result="return")))
         _payload = payload
         result = dict()
-        for _value in TlvDecoder._decode_gen(_payload):
+        for _value in self._decode_gen(_payload):
             result = dict(TlvDecoder.mergedicts(result, _value))
         logger.debug("decode result: %s" % result)
         return result
 
-    @staticmethod
-    def _decode_gen(payload):
+    def _decode_gen(self, payload):
         """
         Recursive generator which decodes TLV-encoded values from payload.
         :param payload: payload to encode from
@@ -177,6 +184,26 @@ class TlvDecoder:
             logger.debug("value: %s" % hexdump(_value, result="return"))
         except IndexError:
             raise DecoderException("not enough bytes for TLV value in payload")
+
+    @staticmethod
+    def _get_length(_type, payload):
+        _len_type = _type >> 3 & 0b11
+        _len = None
+        if _len_type == 0:
+            _len = _type & 0b111
+            logger.debug("Value length: %d bytes" % _len)
+        elif _len_type == 1:
+            logger.debug("length's length: 8 bits")
+        elif _len_type == 2:
+            logger.debug("length's length: 16 bits")
+        elif _len_type == 3:
+            logger.debug("length's length: 24 bits")
+
+
+
+    @staticmethod
+    def _get_id(payload):
+        pass
 
     @staticmethod
     def get_value(_model, path, payload):

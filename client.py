@@ -71,8 +71,8 @@ class RequestHandler(ObservableResource):
             _op_method = eval(_op)
         except NameError:
             log.error(
-                    "handler \"%s\" for %s is not implemented. Please implement it in handlers.py" % (
-                        _op, "/".join(path)))
+                "handler \"%s\" for %s is not implemented. Please implement it in handlers.py" % (
+                    _op, "/".join(path)))
             return Message(code=Code.NOT_IMPLEMENTED)
         _kwargs = dict(model=self.model, payload=request.payload, path=path, content_format=request.opt.content_format)
         result = _op_method(None, **_kwargs)
