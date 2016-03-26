@@ -199,8 +199,6 @@ class TlvDecoder:
         elif _len_type == 3:
             logger.debug("length's length: 24 bits")
 
-
-
     @staticmethod
     def _get_id(payload):
         pass

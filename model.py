@@ -9,7 +9,7 @@
 import logging
 from json import load
 
-log = logging.getLogger("model")
+logger = logging.getLogger("model")
 
 
 class DefinitionFileLoader:
@@ -169,6 +169,11 @@ class ClientModel:
         :return: True, if the given path is valid.
         """
         assert isinstance(path, tuple), "should be a tuple"
+        for i in path:
+            try:
+                int(i)
+            except ValueError:
+                raise AssertionError("path element %s cannot be converted to int" % i)
         if len(path) == 3:
             _obj = int(path[0])
             _inst = int(path[1])
@@ -240,5 +245,5 @@ class ClientModel:
         for obj in data.keys():
             for inst in data[obj].keys():
                 for res in data[obj][inst].keys():
-                    log.debug("applying %s/%s/%s = %s" % (obj, inst, res, data[obj][inst][res]))
+                    logger.debug("applying %s/%s/%s = %s" % (obj, inst, res, data[obj][inst][res]))
                     self.set_resource(obj, inst, res, data[obj][inst][res])

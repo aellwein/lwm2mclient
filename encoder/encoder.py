@@ -161,18 +161,18 @@ class TlvEncoder:
             _content = self.model.resource(obj, inst, res)
             logger.debug("_resource_to_tlv(): %s/%s/%s, type=%s, content=\"%s\"" % (obj, inst, res, _type, _content))
         converter = dict(
-                integer=lambda p: int(p).to_bytes(int(int(p).bit_length() / 8) + 1, byteorder="big", signed=True),
-                string=lambda p: p.encode(),
-                float=lambda p: pack(">f", float(p)) if float.fromhex("0x0.000002P-126") <= float(p) <= float.fromhex(
-                        "0x1.fffffeP+127") else pack(">d", float(p)),
-                boolean=lambda p: b'\x01' if p else b'\x00',
-                time=lambda p: pack(">q", int(p)),
-                opaque=lambda p: bytearray.fromhex(p))
+            integer=lambda p: int(p).to_bytes(int(int(p).bit_length() / 8) + 1, byteorder="big", signed=True),
+            string=lambda p: p.encode(),
+            float=lambda p: pack(">f", float(p)) if float.fromhex("0x0.000002P-126") <= float(p) <= float.fromhex(
+                "0x1.fffffeP+127") else pack(">d", float(p)),
+            boolean=lambda p: b'\x01' if p else b'\x00',
+            time=lambda p: pack(">q", int(p)),
+            opaque=lambda p: bytearray.fromhex(p))
         try:
             _payload = converter[_type](_content)
         except KeyError:
             raise TypeError(
-                    "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
+                "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
         logger.debug("payload: %s" % hexdump(_payload, result="return"))
         return _payload
 

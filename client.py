@@ -18,7 +18,7 @@ from handlers import *
 from model import ClientModel
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("client")
+logger = logging.getLogger("client")
 
 
 class RequestHandler(ObservableResource):
@@ -70,7 +70,7 @@ class RequestHandler(ObservableResource):
         try:
             _op_method = eval(_op)
         except NameError:
-            log.error(
+            logger.error(
                 "handler \"%s\" for %s is not implemented. Please implement it in handlers.py" % (
                     _op, "/".join(path)))
             return Message(code=Code.NOT_IMPLEMENTED)
@@ -81,15 +81,15 @@ class RequestHandler(ObservableResource):
     @asyncio.coroutine
     def render_get(self, request):
         if request.opt.observe is not None:
-            log.debug("observe on %s" % "/".join(request.opt.uri_path))
+            logger.debug("observe on %s" % "/".join(request.opt.uri_path))
             return self.handle_observe(request)
         else:
-            log.debug("read on %s" % "/".join(request.opt.uri_path))
+            logger.debug("read on %s" % "/".join(request.opt.uri_path))
             return self.handle_read(request.opt.uri_path)
 
     @asyncio.coroutine
     def render_put(self, request):
-        log.debug("write on %s" % "/".join(request.opt.uri_path))
+        logger.debug("write on %s" % "/".join(request.opt.uri_path))
         message, _decoded = self.handle_write(request.opt.uri_path, request.payload, request.opt.content_format)
         if message.code == Code.CHANGED:
             self.model.apply(_decoded)
@@ -97,7 +97,7 @@ class RequestHandler(ObservableResource):
 
     @asyncio.coroutine
     def render_post(self, request):
-        log.debug("execute on %s" % "/".join(request.opt.uri_path))
+        logger.debug("execute on %s" % "/".join(request.opt.uri_path))
         return self.handle_exec(request)
 
 
@@ -123,7 +123,7 @@ class Client(resource.Site):
 
     @asyncio.coroutine
     def update_register(self):
-        log.debug("update_register()")
+        logger.debug("update_register()")
         update = Message(code=Code.POST)
         update.opt.uri_host = self.server
         update.opt.uri_port = self.server_port
@@ -131,10 +131,10 @@ class Client(resource.Site):
         response = yield from self.context.request(update).response
         if response.code != Code.CHANGED:
             # error while update, fallback to re-register
-            log.warn("failed to update registration, code {}, falling back to registration".format(response.code))
+            logger.warn("failed to update registration, code {}, falling back to registration".format(response.code))
             asyncio.ensure_future(self.run())
         else:
-            log.info("updated registration for %s" % self.rd_resource)
+            logger.info("updated registration for %s" % self.rd_resource)
             # yield to next update - 1 sec
             yield from asyncio.sleep(self.lifetime - 1)
             asyncio.ensure_future(self.update_register())
@@ -157,7 +157,7 @@ class Client(resource.Site):
 
         # we receive resource path ('rd', 'xyz...')
         self.rd_resource = response.opt.location_path[1].decode()
-        log.info("client registered at location %s" % self.rd_resource)
+        logger.info("client registered at location %s" % self.rd_resource)
         yield from asyncio.sleep(self.lifetime - 1)
         asyncio.ensure_future(self.update_register())
 
