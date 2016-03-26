@@ -19,7 +19,7 @@ setup(
         author="Alexander Ellwein",
         author_email="alex.ellwein@gmail.com",
         license="MIT License",
-        install_requires=["aiocoap>=0.2", "hexdump"],
+        install_requires=["aiocoap", "hexdump"],
         setup_requires=["pytest-runner"],
         tests_require=["pytest"]
 )
