@@ -5,7 +5,7 @@ A customizable LWM2M client written in Python 3.
 
 # Installation
 
-* Prerequisite: Download and install [Python 3.4+](https://www.python.org/downloads/).
+* Prerequisite: Download and install [Python 3.6+](https://www.python.org/downloads/).
 * run ``python3 setup.py install`` (for system-wide installation) or
 * ``python3 setup.py install --user`` (for user-local installation).
 
