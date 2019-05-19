@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+
 import logging
 from enum import Enum
 from math import log
 from struct import pack, unpack
+
 from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
+
+import hexdump
 from hexdump import hexdump
 from model import ClientModel
 
-logger = logging.getLogger("encoder")
+logger = logging.getLogger('encoder')
 
 
 class TlvType(Enum):
@@ -28,7 +31,7 @@ class MediaType(Enum):
 
 
 # useful lambda to calculate the needed bytes from an integer
-needs_bytes = lambda n: 1 if n == 0 else int(log(abs(n), 256)) + 1
+def needs_bytes(n): return 1 if n == 0 else int(log(abs(n), 256)) + 1
 
 
 class TlvEncoder(object):
@@ -41,7 +44,7 @@ class TlvEncoder(object):
             _buf = bytearray()
             for inst in model.instances(obj):
                 _buf.extend(TlvEncoder._instance_to_tlv(model, obj, inst))
-            logging.debug("encode_object(): %s" % hexdump(_buf, result="return"))
+            logging.debug(f'encode_object(): {hexdump(_buf, result="return")}')
             msg = Message(code=Code.CONTENT, payload=_buf)
             msg.opt.content_format = MediaType.TLV.value
             return msg
@@ -51,8 +54,9 @@ class TlvEncoder(object):
             _buf = bytearray()
             for res in model.resources(obj, _inst):
                 if model.is_resource_readable(obj, _inst, res):
-                    _buf.extend(TlvEncoder._resource_to_tlv(model, obj, _inst, res))
-            logging.debug("encode_object(): %s" % hexdump(_buf, result="return"))
+                    _buf.extend(TlvEncoder._resource_to_tlv(
+                        model, obj, _inst, res))
+            logging.debug(f'encode_object(): {hexdump(_buf, result="return")}')
             msg = Message(code=Code.CONTENT, payload=_buf)
             msg.opt.content_format = MediaType.TLV.value
             return msg
@@ -63,7 +67,7 @@ class TlvEncoder(object):
         for res in model.resources(obj, inst):
             if model.is_resource_readable(obj, inst, res):
                 _buf.extend(TlvEncoder._resource_to_tlv(model, obj, inst, res))
-        logging.debug("encode_instance(): %s" % hexdump(_buf, result="return"))
+        logging.debug(f'encode_instance(): {hexdump(_buf, result="return")}')
         msg = Message(code=Code.CONTENT, payload=_buf)
         msg.opt.content_format = MediaType.TLV.value
         return msg
@@ -75,7 +79,8 @@ class TlvEncoder(object):
                 # single resource queries are returned as TEXT (plain)
                 _r = model.resource(obj, inst, res)
                 _payload = str(_r).encode()
-                logging.debug("encode_resource(): %s" % hexdump(_payload, result="return"))
+                logging.debug(
+                    f'encode_resource(): {hexdump(_payload, result="return")}')
                 return Message(code=Code.CONTENT, payload=_payload)
             else:
                 return Message(code=Code.METHOD_NOT_ALLOWED)
@@ -84,7 +89,8 @@ class TlvEncoder(object):
             if not model.is_resource_readable(obj, inst, res):
                 return Message(code=Code.METHOD_NOT_ALLOWED)
             _payload = TlvEncoder._resource_to_tlv(model, obj, inst, res)
-            logging.debug("encode_resource(): %s" % hexdump(_payload, result="return"))
+            logging.debug(
+                f'encode_resource(): {hexdump(_payload, result="return")}')
             msg = Message(code=Code.CONTENT, payload=_payload)
             msg.opt.content_format = MediaType.TLV.value
             return msg
@@ -102,7 +108,8 @@ class TlvEncoder(object):
         _r = model.resource(obj, inst, res)
         if model.is_resource_multi_instance(obj, inst, res):
             if type(_r) != dict:
-                raise TypeError("multiple resource %s/%s/%s must be of 'dict' type" % (obj, inst, res))
+                raise TypeError(
+                    f'multiple resource {obj}/{inst}/{res} must be of "dict" type')
             # MULTIPLE_RESOURCE ( RESOURCE_INSTANCE, RESOURCE_INSTANCE... )
             _buf = bytearray()
             for _res_inst in _r.keys():
@@ -129,52 +136,55 @@ class TlvEncoder(object):
         else:
             _type |= 0b00011000
         result.append(_type)
-        result.extend(_id.to_bytes(1, byteorder="big") if _id < 256 else _id.to_bytes(2, byteorder="big"))
+        result.extend(_id.to_bytes(1, byteorder='big') if _id <
+                      256 else _id.to_bytes(2, byteorder='big'))
         if _len >= 8:
             if _len < 256:
-                result.extend(_len.to_bytes(1, byteorder="big"))
+                result.extend(_len.to_bytes(1, byteorder='big'))
             elif _len < 65536:
-                result.extend(_len.to_bytes(2, byteorder="big"))
+                result.extend(_len.to_bytes(2, byteorder='big'))
             else:
                 msb = _len & 0xFF0000 >> 16
-                result.extend(msb.to_bytes(1, byteorder="big"))
-                result.extend((_len & 0xFFFF).to_bytes(2, byteorder="big"))
+                result.extend(msb.to_bytes(1, byteorder='big'))
+                result.extend((_len & 0xFFFF).to_bytes(2, byteorder='big'))
         result.extend(payload)
         return result
 
     @staticmethod
     def _get_resource_payload(model, obj, inst, res, res_idx=None):
-        _type = model.definition[obj]["resourcedefs"][str(res)]["type"]
+        _type = model.definition[obj]['resourcedefs'][str(res)]['type']
         if res_idx is not None:
             _content = model.resource(obj, inst, res)[res_idx]
-            logger.debug("_resource_to_tlv(): %s/%s/%s, idx=%s, type=%s, content=\"%s\"" % (
-                obj, inst, res, res_idx, _type, _content))
+            logger.debug(
+                f'_resource_to_tlv(): {obj}/{inst}/{res}, idx={res_idx}, type={_type}, content="{_content}"')
         else:
             _content = model.resource(obj, inst, res)
-            logger.debug("_resource_to_tlv(): %s/%s/%s, type=%s, content=\"%s\"" % (obj, inst, res, _type, _content))
-        if _type == "integer":
+            logger.debug(
+                f'_resource_to_tlv(): {obj}/{inst}/{res}, type={_type}, content="{_content}"')
+        if _type == 'integer':
             i = int(_content)
-            _payload = i.to_bytes(int(i.bit_length() / 8) + 1, byteorder="big", signed=True)
-        elif _type == "string":
+            _payload = i.to_bytes(
+                int(i.bit_length() / 8) + 1, byteorder='big', signed=True)
+        elif _type == 'string':
             _payload = _content.encode()
-        elif _type == "float":
+        elif _type == 'float':
             f = float(_content)
-            if float.fromhex("0x0.000002P-126") <= f <= float.fromhex("0x1.fffffeP+127"):
+            if float.fromhex('0x0.000002P-126') <= f <= float.fromhex('0x1.fffffeP+127'):
                 # fits in a float
-                _payload = pack(">f", f)
+                _payload = pack('>f', f)
             else:
                 # use double
-                _payload = pack(">d", f)
-        elif _type == "boolean":
+                _payload = pack('>d', f)
+        elif _type == 'boolean':
             _payload = b'\x01' if _content else b'\x00'
-        elif _type == "time":
-            _payload = pack(">q", int(_content))
-        elif _type == "opaque":
+        elif _type == 'time':
+            _payload = pack('>q', int(_content))
+        elif _type == 'opaque':
             _payload = bytearray.fromhex(_content)
         else:
             raise TypeError(
-                    "unknown resource type: %s. Must be one of (integer,string,float,boolean,time,opaque)" % _type)
-        logger.debug("payload: %s" % hexdump(_payload, result="return"))
+                f'unknown resource type: {_type}. Must be one of (integer,string,float,boolean,time,opaque)')
+        logger.debug(f'payload: {hexdump(_payload, result="return")}')
         return _payload
 
 
@@ -200,22 +210,22 @@ class TextDecoder(object):
         result[_obj] = dict()
         result[_obj][_inst] = dict()
         _payload = payload.decode()
-        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
-        if _type == "integer":
+        _type = _model.definition[_obj]['resourcedefs'][str(_res)]['type']
+        if _type == 'integer':
             result[_obj][_inst][_res] = int(_payload)
-        elif _type == "string":
+        elif _type == 'string':
             result[_obj][_inst][_res] = _payload
-        elif _type == "float":
+        elif _type == 'float':
             result[_obj][_inst][_res] = float(_payload)
-        elif _type == "boolean":
-            result[_obj][_inst][_res] = True if _payload == "1" else False
-        elif _type == "time":
+        elif _type == 'boolean':
+            result[_obj][_inst][_res] = True if _payload == '1' else False
+        elif _type == 'time':
             result[_obj][_inst][_res] = int(_payload)
-        elif _type == "opaque":
+        elif _type == 'opaque':
             result[_obj][_inst][_res] = payload.hex()
         else:
-            raise TypeError("unknown type: %s" % _type)
-        logging.debug("result of TEXT decoding: {}".format(result))
+            raise TypeError(f'unknown type: {_type}')
+        logging.debug(f'result of TEXT decoding: {result}')
         return result
 
 
@@ -225,14 +235,16 @@ class TlvDecoder(object):
 
     @staticmethod
     def decode(_model, path, payload):
-        logger.debug("decode(path=%s, payload=%s)" % (path, hexdump(payload, result="return")))
+        logger.debug(
+            f'decode(path={path}, payload={hexdump(payload, result="return")})')
         _payload = payload
         result = dict()
         while len(_payload) != 0:
             _id, _value, _type, _payload = TlvDecoder._decode(path, _payload)
-            _value = TlvDecoder.value_from_bytes(_model, (path[0], path[1], str(_id),), _value)
+            _value = TlvDecoder.value_from_bytes(
+                _model, (path[0], path[1], str(_id),), _value)
             result = dict(TlvDecoder.mergedicts(result, _value))
-        logger.info("decode result: %s" % result)
+        logger.info(f'decode result: {result}')
         return result
 
     @staticmethod
@@ -243,22 +255,24 @@ class TlvDecoder(object):
         result = dict()
         result[_obj] = dict()
         result[_obj][_inst] = dict()
-        _type = _model.definition[_obj]["resourcedefs"][str(_res)]["type"]
-        if _type == "integer":
-            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
-        elif _type == "string":
+        _type = _model.definition[_obj]['resourcedefs'][str(_res)]['type']
+        if _type == 'integer':
+            result[_obj][_inst][_res] = int.from_bytes(
+                payload, byteorder='big')
+        elif _type == 'string':
             result[_obj][_inst][_res] = payload.decode()
-        elif _type == "float":
-            result[_obj][_inst][_res] = unpack("f", payload)
-        elif _type == "boolean":
+        elif _type == 'float':
+            result[_obj][_inst][_res] = unpack('f', payload)
+        elif _type == 'boolean':
             result[_obj][_inst][_res] = True if payload[0] == 1 else False
-        elif _type == "time":
-            result[_obj][_inst][_res] = int.from_bytes(payload, byteorder="big")
-        elif _type == "opaque":
+        elif _type == 'time':
+            result[_obj][_inst][_res] = int.from_bytes(
+                payload, byteorder='big')
+        elif _type == 'opaque':
             result[_obj][_inst][_res] = payload.hex()
         else:
-            raise TypeError("unknown type: %s" % _type)
-        logging.debug("decoding result: {}".format(result))
+            raise TypeError(f'unknown type: {_type}')
+        logging.debug(f'decoding result: {result}')
         return result
 
     @staticmethod
@@ -279,71 +293,72 @@ class TlvDecoder(object):
         try:
             _type = payload[0]
         except IndexError:
-            raise DecoderException("invalid TLV length")
+            raise DecoderException('invalid TLV length')
         _len_type = _type >> 3 & 0b11
         _len = None
         if _len_type == 0:
             _len = _type & 0b111
-            logger.debug("Value length: %d bytes" % _len)
+            logger.debug(f'Value length: {_len} bytes')
         elif _len_type == 1:
-            logger.debug("length's length: 8 bits")
+            logger.debug(f'length\'s length: 8 bits')
         elif _len_type == 2:
-            logger.debug("length's length: 16 bits")
+            logger.debug(f'length\'s length: 16 bits')
         elif _len_type == 3:
-            logger.debug("length's length: 24 bits")
+            logger.debug(f'length\'s length: 24 bits')
         id_len = _type >> 5 & 1
         try:
             _payload = payload[1:]
         except IndexError:
-            raise DecoderException("unable to determine ID from invalid payload")
+            raise DecoderException(
+                'unable to determine ID from invalid payload')
 
         _id = None
         if id_len == 1:
-            logger.debug("ID: 16 bits")
+            logger.debug('ID: 16 bits')
             try:
-                _id = int.from_bytes(_payload[0:2], byteorder="big")
-                logger.debug("ID: %d" % _id)
+                _id = int.from_bytes(_payload[0:2], byteorder='big')
+                logger.debug(f'ID: {_id}')
                 _payload = _payload[2:]
             except IndexError:
-                raise DecoderException("missing ID bytes in TLV")
+                raise DecoderException('missing ID bytes in TLV')
         elif id_len == 0:
-            logger.debug("ID length: 8 bits")
+            logger.debug('ID length: 8 bits')
             try:
-                _id = int.from_bytes(_payload[0:1], byteorder="big")
-                logger.debug("ID: %d" % _id)
+                _id = int.from_bytes(_payload[0:1], byteorder='big')
+                logger.debug(f'ID: {_id}')
                 _payload = _payload[1:]
             except IndexError:
-                raise DecoderException("missing ID bytes in TLV")
+                raise DecoderException('missing ID bytes in TLV')
         else:
-            raise DecoderException("invalid ID length")
+            raise DecoderException('invalid ID length')
         try:
             if _len is None:
-                _len = int.from_bytes(_payload[0:_len_type], byteorder="big")
-                logger.info("value length: %d" % _len)
+                _len = int.from_bytes(_payload[0:_len_type], byteorder='big')
+                logger.info(f'value length: {_len}')
                 _payload = _payload[_len_type:]
             _value = _payload[0:_len]
-            logger.debug("value: %s" % hexdump(_value, result="return"))
+            logger.debug(f'value: {hexdump(_value, result="return")}')
         except IndexError:
-            raise DecoderException("not enough bytes for TLV value in payload")
+            raise DecoderException('not enough bytes for TLV value in payload')
 
         if _type >> 6 == 0b00:
             # OBJECT_INSTANCE
-            logger.debug("type = OBJECT_INSTANCE")
+            logger.debug('type = OBJECT_INSTANCE')
             pass
         elif _type >> 6 == 0b01:
             # RESOURCE_INSTANCE
-            logger.debug("type = RESOURCE_INSTANCE")
+            logger.debug('type = RESOURCE_INSTANCE')
             pass
         elif _type >> 6 == 0b10:
             # MULTIPLE_RESOURCE
-            logger.debug("type = MULTIPLE_RESOURCE")
+            logger.debug('type = MULTIPLE_RESOURCE')
             pass
         elif _type >> 6 == 0b11:
             # RESOURCE_VALUE
-            logger.debug("type = RESOURCE_VALUE")
+            logger.debug('type = RESOURCE_VALUE')
             pass
         else:
-            raise DecoderException("invalid TLV type: {}".format(_type >> 6))
+            raise DecoderException(f'invalid TLV type: {_type >> 6}')
         return _id, _value, _type, _payload[_len:]
 
 
@@ -379,10 +394,11 @@ class PayloadDecoder(object):
                 return Message(code=Code.CHANGED), TlvDecoder.decode(self.model, path, payload)
             elif content_format == MediaType.TEXT.value:
                 if len(path) != 3 or self.model.is_resource_multi_instance(path[0], path[1], path[2]):
-                    raise Exception("TEXT format should only be used for single non-multiple resource")
+                    raise Exception(
+                        'TEXT format should only be used for single non-multiple resource')
                 return Message(code=Code.CHANGED), TextDecoder.decode(self.model, path, payload)
             else:
-                raise Exception("unsupported content format: %s" % content_format)
+                raise Exception(f'unsupported content format: {content_format}')
         except DecoderException as e:
             return Message(code=Code.BAD_REQUEST, payload=e.message.encode()), None
 
@@ -390,4 +406,4 @@ class PayloadDecoder(object):
 if __name__ == '__main__':
     model = ClientModel()
     encoder = PayloadEncoder(model)
-    logger.debug("encode: {}".format(encoder.encode(("3",))))
+    logger.debug(f'encode: {encoder.encode(("3",))}')

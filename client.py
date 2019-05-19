@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 from aiocoap import resource
 from aiocoap.message import Message
@@ -10,8 +9,9 @@ from encdec import PayloadEncoder, PayloadDecoder
 from handlers import *
 from model import ClientModel
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger("client")
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s [%(levelname)s] %(message)s')
+log = logging.getLogger('client')
 
 
 class RequestHandler(ObservableResource):
@@ -31,11 +31,11 @@ class RequestHandler(ObservableResource):
         path = request.opt.uri_path
         l = len(path)
         if l == 1:
-            obs = "observe_%s" % path[0]
+            obs = f'observe_{path[0]}'
         elif l == 2:
-            obs = "observe_%s_%s" % (path[0], path[1])
+            obs = f'observe_{path[0]}_{path[1]}'
         elif l == 3:
-            obs = "observe_%s_%s_%s" % (path[0], path[1], path[2])
+            obs = f'observe_{path[0]}_{path[1]}_{path[2]}'
         else:
             return Message(code=Code.BAD_REQUEST)
 
@@ -44,9 +44,13 @@ class RequestHandler(ObservableResource):
 
         try:
             obs_method = eval(obs)
-            cancel = request.opt.observe == "0"
-            _kwargs = dict(model=self.model, path=path, payload=request.payload,
-                           content_format=request.opt.content_format, cancel=cancel, notifier=_notifier)
+            cancel = request.opt.observe == '0'
+            _kwargs = dict(model=self.model,
+                           path=path,
+                           payload=request.payload,
+                           content_format=request.opt.content_format,
+                           cancel=cancel,
+                           notifier=_notifier)
             obs_method(None, **_kwargs)
             return self.encoder.encode(path)
         except NameError:
@@ -64,93 +68,96 @@ class RequestHandler(ObservableResource):
             _op_method = eval(_op)
         except NameError:
             log.error(
-                "handler \"%s\" for %s is not implemented. Please implement it in handlers.py" % (_op, "/".join(path)))
+                f'handler "{_op}" for {"/".join(path)} is not implemented. Please implement it in handlers.py')
             return Message(code=Code.NOT_IMPLEMENTED)
-        _kwargs = dict(model=self.model, payload=request.payload, path=path, content_format=request.opt.content_format)
+        _kwargs = dict(model=self.model, payload=request.payload,
+                       path=path, content_format=request.opt.content_format)
         result = _op_method(None, **_kwargs)
         return Message(code=Code.CHANGED, payload=result) if result is not None else Message(code=Code.CHANGED)
 
-    @asyncio.coroutine
-    def render_get(self, request):
+    async def render_get(self, request):
+        log.debug(f'request: {request.opt}')
         if request.opt.observe is not None:
-            log.debug("observe on %s" % "/".join(request.opt.uri_path))
+            log.debug(f'observe on {"/".join(request.opt.uri_path)}')
             return self.handle_observe(request)
         else:
-            log.debug("read on %s" % "/".join(request.opt.uri_path))
+            log.debug(f'read on {"/".join(request.opt.uri_path)}')
             return self.handle_read(request.opt.uri_path)
 
-    @asyncio.coroutine
-    def render_put(self, request):
-        log.debug("write on %s" % "/".join(request.opt.uri_path))
-        message, _decoded = self.handle_write(request.opt.uri_path, request.payload, request.opt.content_format)
+    async def render_put(self, request):
+        log.debug(f'write on {"/".join(request.opt.uri_path)}')
+        message, _decoded = self.handle_write(
+            request.opt.uri_path, request.payload, request.opt.content_format)
         if message.code == Code.CHANGED:
             self.model.apply(_decoded)
         return message
 
-    @asyncio.coroutine
-    def render_post(self, request):
-        log.debug("execute on %s" % "/".join(request.opt.uri_path))
+    async def render_post(self, request):
+        log.debug(f'execute on {"/".join(request.opt.uri_path)}')
         return self.handle_exec(request)
 
 
 class Client(resource.Site):
-    endpoint = "python-client"
-    binding_mode = "UQ"
+    endpoint = 'python-client'
+    binding_mode = 'UQ'
     lifetime = 86400  # default: 86400
     context = None
     rd_resource = None
 
-    def __init__(self, model=ClientModel(), server="localhost", server_port=5683):
+    def __init__(self, model=ClientModel(), server='localhost', server_port=5683):
         super(Client, self).__init__()
         self.server = server
         self.server_port = server_port
         self.model = model
         self.encoder = PayloadEncoder(model)
         self.decoder = PayloadDecoder(model)
-        self.request_handler = RequestHandler(self.model, self.encoder, self.decoder)
+        self.request_handler = RequestHandler(
+            self.model, self.encoder, self.decoder)
         for path in model.instance_iter():
             self.add_resource(path, self.request_handler)
         for path in model.resource_iter():
             self.add_resource(path, self.request_handler)
 
-    @asyncio.coroutine
-    def update_register(self):
-        log.debug("update_register()")
+    async def update_register(self):
+        log.debug('update_register()')
         update = Message(code=Code.POST)
         update.opt.uri_host = self.server
         update.opt.uri_port = self.server_port
-        update.opt.uri_path = ("rd", self.rd_resource)
-        response = yield from self.context.request(update).response
+        update.opt.uri_path = ('rd', self.rd_resource)
+        response = await self.context.request(update).response
         if response.code != Code.CHANGED:
             # error while update, fallback to re-register
-            log.warn("failed to update registration, code {}, falling back to registration".format(response.code))
+            log.warn(
+                f'failed to update registration, code {response.code}, falling back to registration')
             asyncio.ensure_future(self.run())
         else:
-            log.info("updated registration for %s" % self.rd_resource)
+            log.info(f'updated registration for {self.rd_resource}')
             # yield to next update - 1 sec
-            yield from asyncio.sleep(self.lifetime - 1)
+            await asyncio.sleep(self.lifetime - 1)
             asyncio.ensure_future(self.update_register())
 
-    @asyncio.coroutine
-    def run(self):
-        self.context = yield from Context.create_server_context(self, bind=("::", 0))
+    async def run(self):
+        self.context = await Context.create_server_context(self, bind=('::', 0))
 
         # send POST (registration)
-        request = Message(code=Code.POST, payload=",".join(self.model.get_object_links()).encode())
+        request = Message(code=Code.POST, payload=','.join(
+            self.model.get_object_links()).encode())
         request.opt.uri_host = self.server
         request.opt.uri_port = self.server_port
-        request.opt.uri_path = ("rd",)
-        request.opt.uri_query = ("ep=%s" % self.endpoint, "b=%s" % self.binding_mode, "lt=%d" % self.lifetime)
-        response = yield from self.context.request(request).response
+        request.opt.uri_path = ('rd',)
+        request.opt.uri_query = (
+            f'ep={self.endpoint}', f'b={self.binding_mode}', f'lt={self.lifetime}')
+        response = await self.context.request(request).response
 
         # expect ACK
         if response.code != Code.CREATED:
-            raise BaseException("unexpected code received: %s. Unable to register!" % response.code)
+            raise BaseException(
+                f'unexpected code received: {response.code}. Unable to register!')
 
         # we receive resource path ('rd', 'xyz...')
-        self.rd_resource = response.opt.location_path[1].decode()
-        log.info("client registered at location %s" % self.rd_resource)
-        yield from asyncio.sleep(self.lifetime - 1)
+        self.rd_resource = response.opt.location_path[1]
+        log.info(f'client registered at location {self.rd_resource}')
+        await asyncio.sleep(self.lifetime - 1)
         asyncio.ensure_future(self.update_register())
 
 
