@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-from aiocoap import resource
+from aiocoap import resource, error
 from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
 from aiocoap.protocol import Context
 from aiocoap.resource import ObservableResource
+
 from encdec import PayloadEncoder, PayloadDecoder
 from handlers import *
 from model import ClientModel
@@ -27,14 +28,13 @@ class RequestHandler(ObservableResource):
     def handle_write(self, path, payload, content_format):
         return self.decoder.decode(path, payload, content_format)
 
-    def handle_observe(self, request):
-        path = request.opt.uri_path
-        l = len(path)
-        if l == 1:
+    def handle_observe(self, path, request):
+        plen = len(path)
+        if plen == 1:
             obs = f'observe_{path[0]}'
-        elif l == 2:
+        elif plen == 2:
             obs = f'observe_{path[0]}_{path[1]}'
-        elif l == 3:
+        elif plen == 3:
             obs = f'observe_{path[0]}_{path[1]}_{path[2]}'
         else:
             return Message(code=Code.BAD_REQUEST)
@@ -57,8 +57,7 @@ class RequestHandler(ObservableResource):
             pass
         return Message(code=Code.METHOD_NOT_ALLOWED)
 
-    def handle_exec(self, request):
-        path = request.opt.uri_path
+    def handle_exec(self, path, request):
         if len(path) != 3 or not self.model.is_path_valid(path):
             return Message(code=Code.BAD_REQUEST)
         if not self.model.is_resource_executable(path[0], path[1], path[2]):
@@ -75,26 +74,32 @@ class RequestHandler(ObservableResource):
         result = _op_method(None, **_kwargs)
         return Message(code=Code.CHANGED, payload=result) if result is not None else Message(code=Code.CHANGED)
 
-    async def render_get(self, request):
-        log.debug(f'request: {request.opt}')
-        if request.opt.observe is not None:
-            log.debug(f'observe on {"/".join(request.opt.uri_path)}')
-            return self.handle_observe(request)
-        else:
-            log.debug(f'read on {"/".join(request.opt.uri_path)}')
-            return self.handle_read(request.opt.uri_path)
+    async def render(self, req):
+        path, request = req
+        m = getattr(self, 'render_%s' % str(request.code).lower(), None)
+        if not m:
+            raise error.UnallowedMethod()
+        return await m(path, request)
 
-    async def render_put(self, request):
-        log.debug(f'write on {"/".join(request.opt.uri_path)}')
+    async def render_get(self, path, request):
+        if request.opt.observe is not None:
+            log.debug(f'observe on {"/".join(path)}')
+            return self.handle_observe(path, request)
+        else:
+            log.debug(f'read on {"/".join(path)}')
+            return self.handle_read(path)
+
+    async def render_put(self, path, request):
+        log.debug(f'write on {"/".join(path)}')
         message, _decoded = self.handle_write(
-            request.opt.uri_path, request.payload, request.opt.content_format)
+            path, request.payload, request.opt.content_format)
         if message.code == Code.CHANGED:
             self.model.apply(_decoded)
         return message
 
-    async def render_post(self, request):
-        log.debug(f'execute on {"/".join(request.opt.uri_path)}')
-        return self.handle_exec(request)
+    async def render_post(self, path, request):
+        log.debug(f'execute on {"/".join(path)}')
+        return self.handle_exec(path, request)
 
 
 class Client(resource.Site):
@@ -118,6 +123,13 @@ class Client(resource.Site):
         for path in model.resource_iter():
             self.add_resource(path, self.request_handler)
 
+    async def render(self, request):
+        uri_path = request.opt.uri_path
+        if len(uri_path) == 0:
+            return await super().render(request)
+        else:
+            return await self.request_handler.render((uri_path, request,))
+
     async def update_register(self):
         log.debug('update_register()')
         update = Message(code=Code.POST)
@@ -127,7 +139,7 @@ class Client(resource.Site):
         response = await self.context.request(update).response
         if response.code != Code.CHANGED:
             # error while update, fallback to re-register
-            log.warn(
+            log.warning(
                 f'failed to update registration, code {response.code}, falling back to registration')
             asyncio.ensure_future(self.run())
         else:
