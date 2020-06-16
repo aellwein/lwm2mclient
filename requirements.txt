@@ -1,3 +1,4 @@
-aiocoap[linkheader,oscore] >= 0.4b2
+aiocoap[linkheader,oscore]>=0.4b2
 hexdump==3.3
+pip==20.1.1
 -e .
