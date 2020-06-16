@@ -12,6 +12,12 @@ setup(
     author_email='alex.ellwein@gmail.com',
     license='MIT License',
     packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        'lwm2m': [
+            'client/data/model.yml'
+        ]
+    },
     entry_points={
         'console_scripts': [
             'lwm2mclient=lwm2m.client.client:main',

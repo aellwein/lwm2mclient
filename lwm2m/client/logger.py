@@ -15,6 +15,5 @@ levels = {
 
 def text_to_level(lvl: str) -> int:
     if lvl not in levels:
-        raise ValueError(f'FATAL: invalid logging level provided: {lvl}')
-
+        raise ValueError(f'Invalid logging level provided: {lvl}')
     return levels[lvl]
