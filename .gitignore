@@ -6,3 +6,4 @@ build/
 .venv/
 venv/
 .coverage
+htmlcov/
