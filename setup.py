@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-from setuptools import setup
+from importlib.metadata import entry_points
+
+from setuptools import find_packages, setup
 
 setup(
     name='lwm2mclient',
     version='0.1.0+git',
     description='Lightweight M2M Client written in Python',
+    url='https://github.com/aellwein/lwm2mclient',
     author='Alexander Ellwein',
     author_email='alex.ellwein@gmail.com',
     license='MIT License',
-    install_requires=[
-        'aiocoap==0.4a1',
-        'hexdump==3.3'
-    ]
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'lwm2mclient=lwm2m.client.client:main',
+        ]
+    },
 )
