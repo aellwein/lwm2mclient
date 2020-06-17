@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 
 from aiocoap import resource, error
 from aiocoap.message import Message
@@ -109,10 +110,11 @@ class Client(resource.Site):
     context = None
     rd_resource = None
 
-    def __init__(self, model=ClientModel(), server='localhost', server_port=5683):
+    def __init__(self, model=ClientModel(), server='localhost', server_port=5683, **kwargs):
         super(Client, self).__init__()
         self.server = server
         self.server_port = server_port
+        self.address = kwargs['address'] if 'address' in kwargs else '::'
         self.model = model
         self.encoder = PayloadEncoder(model)
         self.decoder = PayloadDecoder(model)
@@ -149,7 +151,7 @@ class Client(resource.Site):
             asyncio.ensure_future(self.update_register())
 
     async def run(self):
-        self.context = await Context.create_server_context(self, bind=('::', 0))
+        self.context = await Context.create_server_context(self, bind=(self.address, 0))
 
         # send POST (registration)
         request = Message(code=Code.POST, payload=','.join(
@@ -174,7 +176,12 @@ class Client(resource.Site):
 
 
 if __name__ == '__main__':
-    client = Client()
+    parser = argparse.ArgumentParser('lwm2mclient')
+    parser.add_argument('--address', type=str, default='::',
+                        help='Address for client to bind and listen for incoming requests')
+    args = parser.parse_args()
+
+    client = Client(**vars(args))
     loop = asyncio.get_event_loop()
     asyncio.ensure_future(client.run())
     try:
