@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 
-from aiocoap import resource, error
+from aiocoap import error, resource
 from aiocoap.message import Message
 from aiocoap.numbers.codes import Code
 from aiocoap.protocol import Context
 from aiocoap.resource import ObservableResource
 
-from encdec import PayloadEncoder, PayloadDecoder
+from encdec import PayloadDecoder, PayloadEncoder
 from handlers import *
 from model import ClientModel
 
