@@ -23,11 +23,11 @@ class TlvType(Enum):
 
 
 class MediaType(Enum):
+    TEXT = 0
     LINK = 40
-    TEXT = 1541
-    TLV = 1542
-    JSON = 1543
-    OPAQUE = 1544
+    OPAQUE = 42
+    TLV = 11542
+    JSON = 11543
 
 
 # useful lambda to calculate the needed bytes from an integer
@@ -45,8 +45,8 @@ class TlvEncoder(object):
             for inst in model.instances(obj):
                 _buf.extend(TlvEncoder._instance_to_tlv(model, obj, inst))
             logging.debug(f'encode_object(): {hexdump(_buf, result="return")}')
-            msg = Message(code=Code.CONTENT, payload=_buf)
-            msg.opt.content_format = MediaType.TLV.value
+            msg = Message(code=Code.CONTENT, payload=_buf,
+                          content_format=MediaType.TLV.value)
             return msg
         else:
             # directly encode resources
@@ -57,8 +57,8 @@ class TlvEncoder(object):
                     _buf.extend(TlvEncoder._resource_to_tlv(
                         model, obj, _inst, res))
             logging.debug(f'encode_object(): {hexdump(_buf, result="return")}')
-            msg = Message(code=Code.CONTENT, payload=_buf)
-            msg.opt.content_format = MediaType.TLV.value
+            msg = Message(code=Code.CONTENT, payload=_buf,
+                          content_format=MediaType.TLV.value)
             return msg
 
     @staticmethod
@@ -68,8 +68,8 @@ class TlvEncoder(object):
             if model.is_resource_readable(obj, inst, res):
                 _buf.extend(TlvEncoder._resource_to_tlv(model, obj, inst, res))
         logging.debug(f'encode_instance(): {hexdump(_buf, result="return")}')
-        msg = Message(code=Code.CONTENT, payload=_buf)
-        msg.opt.content_format = MediaType.TLV.value
+        msg = Message(code=Code.CONTENT, payload=_buf,
+                      content_format=MediaType.TLV.value)
         return msg
 
     @staticmethod
@@ -81,7 +81,7 @@ class TlvEncoder(object):
                 _payload = str(_r).encode()
                 logging.debug(
                     f'encode_resource(): {hexdump(_payload, result="return")}')
-                return Message(code=Code.CONTENT, payload=_payload)
+                return Message(code=Code.CONTENT, payload=_payload, content_format=MediaType.TEXT.value)
             else:
                 return Message(code=Code.METHOD_NOT_ALLOWED)
         else:
@@ -91,8 +91,8 @@ class TlvEncoder(object):
             _payload = TlvEncoder._resource_to_tlv(model, obj, inst, res)
             logging.debug(
                 f'encode_resource(): {hexdump(_payload, result="return")}')
-            msg = Message(code=Code.CONTENT, payload=_payload)
-            msg.opt.content_format = MediaType.TLV.value
+            msg = Message(code=Code.CONTENT, payload=_payload,
+                          content_format=MediaType.TLV.value)
             return msg
 
     @staticmethod
@@ -398,7 +398,8 @@ class PayloadDecoder(object):
                         'TEXT format should only be used for single non-multiple resource')
                 return Message(code=Code.CHANGED), TextDecoder.decode(self.model, path, payload)
             else:
-                raise Exception(f'unsupported content format: {content_format}')
+                raise Exception(
+                    f'unsupported content format: {content_format}')
         except DecoderException as e:
             return Message(code=Code.BAD_REQUEST, payload=e.message.encode()), None
 

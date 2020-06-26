@@ -770,7 +770,7 @@
         "operations": "R",
         "instancetype": "single",
         "mandatory": true,
-        "type": "string",
+        "type": "float",
         "range": "",
         "units": "Deg",
         "description": ""
@@ -792,7 +792,7 @@
         "operations": "R",
         "instancetype": "single",
         "mandatory": false,
-        "type": "string",
+        "type": "float",
         "range": "",
         "units": "m",
         "description": ""
