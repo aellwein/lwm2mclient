@@ -134,7 +134,8 @@ class Client(resource.Site):
 
     async def update_register(self):
         log.debug('update_register()')
-        update = Message(code=Code.POST)
+        update = Message(
+            code=Code.POST, uri=f'coap://{self.server}:{self.server_port}')
         update.opt.uri_host = self.server
         update.opt.uri_port = self.server_port
         update.opt.uri_path = ('rd', self.rd_resource)
@@ -155,7 +156,9 @@ class Client(resource.Site):
 
         # send POST (registration)
         request = Message(code=Code.POST, payload=','.join(
-            self.model.get_object_links()).encode())
+            self.model.get_object_links()).encode(),
+            uri=f'coap://{self.server}:{self.server_port}'
+        )
         request.opt.uri_host = self.server
         request.opt.uri_port = self.server_port
         request.opt.uri_path = ('rd',)
