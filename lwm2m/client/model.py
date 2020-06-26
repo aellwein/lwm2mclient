@@ -17,8 +17,7 @@ logger = logging.getLogger('model')
 class ModelLoader(metaclass=ABCMeta):
     @abstractmethod
     def load_model(self, path):
-        raise NotImplementedError(
-            'this method has to be implemented by the subclass')
+        pass
 
     def __repr__(self):
         return '.'.join([self.__class__.__module__, self.__class__.__name__])
