@@ -5,16 +5,39 @@ A customizable LWM2M client written in Python 3.
 
 # Installation
 
-* Prerequisite: Download and install [Python 3.6+](https://www.python.org/downloads/).
-* run ``python3 setup.py install`` (for system-wide installation) or
-* ``python3 setup.py install --user`` (for user-local installation).
+Prerequisite: Download and install [Python 3.6+](https://www.python.org/downloads/).
+Preferred way of installation is using [virtualenv](https://docs.python.org/3/tutorial/venv.html).
+
+* Setting up _virtualenv_ in some directory (the instructions on Windows are slightly different,
+  please refer to the [documentation](https://docs.python.org/3/tutorial/venv.html)):
+  ```sh
+  # following command creates a virtualenv in the '.venv' subfolder 
+
+  $ python3 -m venv .venv
+
+  # activate virtualenv for the current shell
+  # for Windows, use .\.venv\Scripts\activate.bat
+  $ source .venv/bin/activate
+
+  ```
+* Now, run ``pip install -r requirements.txt`` to install this package in the activated virtualenv.
+
 
 # Usage
 
 ## Running The Client
 
-Use ``python3 client.py`` command to connect LWM2M server listening on udp://localhost:5683 
-(for instance, a [Leshan](http://www.eclipse.org/leshan/) server).
+If you didn't previously, activate virtualenv for your shell.
+Use ``./client.py`` command to connect LWM2M server listening on udp://localhost:5683 (for instance, a [Leshan](http://www.eclipse.org/leshan/) server).
+
+See 
+
+```sh
+./client.py --help
+```
+
+for more options.
+
 
 ## Client Data Model
 
