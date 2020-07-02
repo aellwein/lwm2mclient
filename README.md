@@ -16,8 +16,9 @@ Preferred way of installation is using [virtualenv](https://docs.python.org/3/tu
   $ python3 -m venv .venv
 
   # activate virtualenv for the current shell
-
+  # for Windows, use .\.venv\Scripts\activate.bat
   $ source .venv/bin/activate
+
   ```
 * Now, run ``pip install -r requirements.txt`` to install this package in the activated virtualenv.
 
@@ -26,15 +27,23 @@ Preferred way of installation is using [virtualenv](https://docs.python.org/3/tu
 
 ## Running The Client
 
-Use ``lwm2mclient`` command (from activated virtualenv) to connect LWM2M server listening on udp://localhost:5683 (for instance, a [Leshan](http://www.eclipse.org/leshan/) server).
+If you didn't previously, activate virtualenv for your shell.
+Use ``./client.py`` command to connect LWM2M server listening on udp://localhost:5683 (for instance, a [Leshan](http://www.eclipse.org/leshan/) server).
 
-See 
+**Note for Windows/Mac users:**
+
+Because of the underlying transport implementation on Windows/Mac, 
+see [aiocoap FAQ](https://aiocoap.readthedocs.io/en/latest/faq.html) for more details, 
+the LwM2M client needs the ``--address`` argument to be set to some specific IP address on your system, 
+the default IP address "::" would not work here. 
+
+See also
 
 ```sh
-lwm2mclient --help
+./client.py --help
 ```
 
-for more options.
+for all options.
 
 
 ## Client Data Model

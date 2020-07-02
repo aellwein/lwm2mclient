@@ -1,7 +1,5 @@
-# TODO: move to stable aiocoap soon
-# aiocoap[linkheader,oscore]>=0.4b2
-git+https://github.com/chrysn/aiocoap.git@master
 hexdump==3.3
 pip==20.1.1
-pyyaml==5.3.1
+# TODO: move to stable aiocoap soon
+git+https://github.com/chrysn/aiocoap@bd9faf757b0ae24fdd155b1ef711ca12ea85ddaf
 -e .
