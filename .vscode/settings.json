@@ -9,7 +9,8 @@
         "**/build/": true,
         "**/.venv/": true,
         "**/venv/": true,
-        "**/.coverage": true
+        "**/.coverage": true,
+        "**/htmlcov/": true
     },
     "python.linting.enabled": true,
     "python.testing.pytestArgs": [
